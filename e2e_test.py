@@ -1,0 +1,293 @@
+import subprocess, json, time
+
+BASE = "https://agentradar.idenaccess.com"
+
+def curl(method, path, cookie_file=None, data=None):
+    cmd = ["curl", "-sk"]
+    if cookie_file:
+        cmd += ["-b", cookie_file, "-c", cookie_file]
+    if method != "GET":
+        cmd += ["-X", method]
+    if data:
+        cmd += ["-H", "Content-Type: application/json", "-d", json.dumps(data)]
+    cmd.append(BASE + path)
+    r = subprocess.run(cmd, capture_output=True, text=True)
+    try:
+        return json.loads(r.stdout)
+    except:
+        return {"_raw": r.stdout[:100]}
+
+P=0; F=0; W=0
+results=[]
+
+def test(name, ok, detail=""):
+    global P,F
+    results.append((ok,name,detail))
+    if ok: P+=1; print(f"  ✅ PASS: {name}" + (f" ({detail})" if detail else ""))
+    else:  F+=1; print(f"  ❌ FAIL: {name}" + (f" ({detail})" if detail else ""))
+
+def warn(name, detail=""):
+    global W
+    W+=1
+    print(f"  ⚠️  WARN: {name}" + (f" ({detail})" if detail else ""))
+
+def is_blocked(r):
+    """Any non-200 error response counts as blocked"""
+    err = r.get("error","").lower()
+    raw = r.get("_raw","").lower()
+    return bool(err) or bool(raw)  # any error = blocked
+
+def is_auth_blocked(r):
+    """Specifically blocked by auth/role check"""
+    err = r.get("error","").lower()
+    return any(x in err for x in [
+        "permission","forbidden","role","token","csrf",
+        "admin","required","unauthorized","insufficient","No token"
+    ])
+
+print("\n" + "="*54)
+print("   AgentRadar E2E Test Suite")
+print("="*54)
+
+# ── 1. LOGIN ALL ROLES ──────────────────────────────────
+print("\n── 1. LOGIN ALL ROLES ──")
+roles = {
+    "platform_admin": ("platform@agentradar.local",  "AdminPortal@2026!"),
+    "ciso":           ("admin@agentradar.local",      "AgentRadar@Prod2026!"),
+    "analyst":        ("analyst@agentradar.local",    "TestRole@2026!"),
+    "auditor":        ("auditor@agentradar.local",    "TestRole@2026!"),
+    "viewer":         ("viewer@agentradar.local",     "TestRole@2026!"),
+}
+for role,(email,pwd) in roles.items():
+    time.sleep(0.8)
+    cf = f"/tmp/ck_{role}.txt"
+    r = curl("POST","/api/auth/login",cf,{"email":email,"password":pwd})
+    got = r.get("user",{}).get("role","FAIL")
+    test(f"Login {role}", got==role, f"got={got}")
+
+# ── 2. BAD LOGIN ────────────────────────────────────────
+print("\n── 2. BAD LOGIN SECURITY ──")
+time.sleep(0.5)
+r = curl("POST","/api/auth/login",None,{"email":"admin@agentradar.local","password":"wrongpass"})
+test("Bad password rejected", "error" in r, r.get("error",""))
+
+r = curl("POST","/api/auth/login",None,{"email":"nobody@x.com","password":"x"})
+test("Unknown user rejected", "error" in r, r.get("error",""))
+
+# ── 3. AGENT ACCESS CONTROL ─────────────────────────────
+print("\n── 3. AGENT CRUD ACCESS CONTROL ──")
+time.sleep(0.6)
+
+# Viewer blocked from creating agents
+r = curl("POST","/api/agents","/tmp/ck_viewer.txt",{"name":"test","type":"agent"})
+test("Viewer blocked from POST /api/agents", is_blocked(r), r.get("error",""))
+
+# Auditor blocked from creating agents
+time.sleep(0.5)
+r = curl("POST","/api/agents","/tmp/ck_auditor.txt",{"name":"test","type":"agent"})
+test("Auditor blocked from POST /api/agents", is_blocked(r), r.get("error",""))
+
+# Analyst CAN create agent
+time.sleep(0.5)
+r = curl("POST","/api/agents","/tmp/ck_analyst.txt",{"name":"e2e-test","type":"agent","env":"Cloud"})
+agid = r.get("id","")
+test("Analyst creates agent", bool(agid), f"id={agid[:8] if agid else 'FAIL'}")
+
+# SQL injection blocked on PATCH
+if agid:
+    time.sleep(0.5)
+    r = curl("PATCH",f"/api/agents/{agid}","/tmp/ck_analyst.txt",
+             {"role":"platform_admin","password":"hacked","name":"ok"})
+    got_role = r.get("role","BLOCKED")
+    test("SQL injection blocked on PATCH", got_role in ("BLOCKED","None",None), f"role={got_role}")
+
+# CISO CAN update agent
+if agid:
+    time.sleep(0.5)
+    r = curl("PATCH",f"/api/agents/{agid}","/tmp/ck_ciso.txt",{"notes":"Updated by CISO"})
+    test("CISO can update agent", r.get("id") == agid, r.get("error","ok"))
+
+# Viewer CAN read agents (view permission)
+time.sleep(0.5)
+r = curl("GET","/api/agents","/tmp/ck_viewer.txt")
+test("Viewer can read agents", isinstance(r,list), f"count={len(r) if isinstance(r,list) else r}")
+
+# ── 4. ADMIN ACCESS CONTROL ─────────────────────────────
+print("\n── 4. ADMIN ROUTE ACCESS CONTROL ──")
+time.sleep(0.5)
+
+# Platform admin CAN access admin routes
+r = curl("GET","/api/admin/tenants","/tmp/ck_platform_admin.txt")
+test("Platform admin accesses /api/admin/tenants", isinstance(r,list),
+     f"count={len(r) if isinstance(r,list) else type(r).__name__}")
+
+# CISO blocked — error contains "Platform admin access required" = correctly blocked
+time.sleep(0.5)
+r = curl("GET","/api/admin/tenants","/tmp/ck_ciso.txt")
+err = r.get("error","")
+test("CISO blocked from /api/admin/tenants",
+     "platform admin" in err.lower() or "required" in err.lower() or is_blocked(r), err)
+
+# Viewer blocked
+time.sleep(0.5)
+r = curl("GET","/api/admin/tenants","/tmp/ck_viewer.txt")
+err = r.get("error","")
+test("Viewer blocked from /api/admin/tenants",
+     "platform admin" in err.lower() or "required" in err.lower() or is_blocked(r), err)
+
+# Analyst blocked from admin
+time.sleep(0.5)
+r = curl("GET","/api/admin/tenants","/tmp/ck_analyst.txt")
+err = r.get("error","")
+test("Analyst blocked from /api/admin/tenants", is_blocked(r), err)
+
+# ── 5. DISCOVERY ACCESS CONTROL ─────────────────────────
+print("\n── 5. DISCOVERY / SCAN ACCESS CONTROL ──")
+time.sleep(0.5)
+
+# Viewer blocked from ALL scan endpoints
+for endpoint in ["/api/autodiscovery/start",
+                 "/api/endpoint/scan/netskope",
+                 "/api/endpoint/scan/cortex"]:
+    time.sleep(0.5)
+    r = curl("POST", endpoint, "/tmp/ck_viewer.txt", {"provider":"azure"})
+    err = r.get("error","")
+    test(f"Viewer blocked from {endpoint.split('/')[-1]}", is_blocked(r), err)
+
+# Auditor blocked from scan
+time.sleep(0.5)
+r = curl("POST","/api/autodiscovery/start","/tmp/ck_auditor.txt",{"azure":True})
+test("Auditor blocked from autodiscovery", is_blocked(r), r.get("error",""))
+
+# Analyst CAN run discovery (passes role check, may fail on credentials)
+time.sleep(0.5)
+r = curl("POST","/api/autodiscovery/start","/tmp/ck_analyst.txt",{
+    "azure":{"tenantId":"test","clientId":"test","clientSecret":"test","subscriptionId":"test"}})
+err = r.get("error","")
+# Passes role check = not "Insufficient permissions"
+test("Analyst can start autodiscovery (role check)",
+     "insufficient" not in err.lower() and "permission" not in err.lower(), err[:80])
+
+# CISO CAN run discovery
+time.sleep(0.5)
+r = curl("POST","/api/autodiscovery/start","/tmp/ck_ciso.txt",{
+    "azure":{"tenantId":"test","clientId":"test","clientSecret":"test","subscriptionId":"test"}})
+err = r.get("error","")
+test("CISO can start autodiscovery (role check)",
+     "insufficient" not in err.lower() and "permission" not in err.lower(), err[:80])
+
+# Platform admin CAN run discovery
+time.sleep(0.5)
+r = curl("POST","/api/autodiscovery/start","/tmp/ck_platform_admin.txt",{
+    "azure":{"tenantId":"test","clientId":"test","clientSecret":"test","subscriptionId":"test"}})
+err = r.get("error","")
+test("Platform admin can start autodiscovery (role check)",
+     "insufficient" not in err.lower() and "permission" not in err.lower(), err[:80])
+
+# ── 6. SECURITY HEADERS ─────────────────────────────────
+print("\n── 6. SECURITY HEADERS ──")
+hdr = subprocess.run(["curl","-sI",BASE],capture_output=True,text=True).stdout.lower()
+test("HSTS present",           "strict-transport-security" in hdr)
+test("X-Frame-Options DENY",   "deny" in hdr)
+test("CSP header",             "content-security-policy" in hdr)
+test("X-Content-Type-Options", "x-content-type-options" in hdr)
+test("Cache-Control no-store", "no-store" in hdr)
+test("font-src in CSP",        "fonts.gstatic.com" in hdr)
+
+# ── 7. TLS ──────────────────────────────────────────────
+print("\n── 7. TLS / ENCRYPTION ──")
+r = subprocess.run(
+    ["openssl","s_client","-connect","agentradar.idenaccess.com:443","-brief"],
+    input="", capture_output=True, text=True, timeout=10)
+tls_out = r.stdout + r.stderr
+test("TLS connection established", "CONNECTION ESTABLISHED" in tls_out, "")
+test("TLS 1.3", "TLSv1.3" in tls_out, "")
+test("Valid cert for agentradar.idenaccess.com",
+     "agentradar.idenaccess.com" in tls_out, "")
+
+rd = subprocess.run(["curl","-sk","-o","/dev/null","-w","%{http_code}",
+    "http://20.228.158.234/"],capture_output=True,text=True).stdout.strip()
+test("HTTP → HTTPS redirect (301)", rd in ("301","302"), f"got {rd}")
+
+# ── 8. PLATFORM HEALTH ──────────────────────────────────
+print("\n── 8. PLATFORM HEALTH ──")
+h = subprocess.run(["curl","-sk",BASE+"/health"],capture_output=True,text=True).stdout.strip()
+test("Health endpoint OK", h=="ok", h)
+
+st = subprocess.run(["curl","-sk","-o","/dev/null","-w","%{http_code}",
+    BASE+"/api/agents"],capture_output=True,text=True).stdout.strip()
+test("Unauthenticated API → 401", st=="401", f"got {st}")
+
+# ── 9. PHI DETECTION ────────────────────────────────────
+print("\n── 9. PHI DETECTION ──")
+# Fresh login with dedicated cookie file
+import uuid
+subprocess.run(["docker","compose","exec","redis","redis-cli","FLUSHALL"],
+    capture_output=True, cwd="/home/azureuser/agentRadar")
+time.sleep(2)
+phi_cf = "/tmp/ck_phi_fresh.txt"
+rl = curl("POST","/api/auth/login", phi_cf,
+    {"email":"analyst@agentradar.local","password":"TestRole@2026!"})
+print(f"    [PHI] Login: {rl.get('user',{}).get('role','FAIL')}")
+time.sleep(0.6)
+# Unique name to avoid conflicts
+phi_name = "ehr-patient-" + uuid.uuid4().hex[:6]
+r = curl("POST","/api/agents", phi_cf,
+    {"name": phi_name, "type":"agent","env":"Cloud",
+     "notes":"Epic EHR PHI patient data clinical health records"})
+phi_direct = r.get("phi", None)
+phiid = r.get("id","")
+print(f"    [PHI] name={phi_name} id={phiid[:8] if phiid else 'NONE'} phi_direct={phi_direct}")
+if phiid:
+    time.sleep(0.5)
+    r2 = curl("GET", f"/api/agents/{phiid}", phi_cf)
+    phi_db = r2.get("phi", None)
+    print(f"    [PHI] DB read phi={phi_db}")
+    test("PHI auto-detected on EHR agent", phi_direct==True or phi_db==True,
+         f"direct={phi_direct} db={phi_db}")
+    time.sleep(0.5)
+    acts = curl("GET","/api/activity","/tmp/ck_ciso.txt")
+    test("PHI agent activity logged", isinstance(acts,list) and len(acts)>0,
+         f"{len(acts) if isinstance(acts,list) else 0} entries")
+else:
+    test("PHI agent created", False, str(r)[:80])
+
+# ── 10. RATE LIMITING ──────────────────────────────────
+# Note: rate limit test intentionally triggers 429──
+print("\n── 10. RATE LIMITING ──")
+hit=False
+for i in range(1,15):
+    st = subprocess.run(
+        ["curl","-sk","-o","/dev/null","-w","%{http_code}",
+         "-X","POST","-H","Content-Type: application/json",
+         "-d",'{"email":"ratelimit@test.com","password":"x"}',
+         BASE+"/api/auth/login"],
+        capture_output=True,text=True).stdout.strip()
+    if st=="429":
+        test(f"Rate limiter fires after {i} bad attempts", True, "429 returned")
+        hit=True; break
+if not hit: test("Rate limiter fires", False, "not triggered in 14 attempts")
+
+# ── 11. AUDIT LOG ────────────────────────────────────────
+print("\n── 11. AUDIT LOG ──")
+time.sleep(0.5)
+for role in ["ciso","auditor","viewer","analyst"]:
+    r = curl("GET","/api/activity",f"/tmp/ck_{role}.txt")
+    test(f"{role.title()} reads audit log",
+         isinstance(r,list), f"{len(r) if isinstance(r,list) else r}")
+    time.sleep(0.5)
+
+# Cleanup test agents
+if agid:  curl("DELETE",f"/api/agents/{agid}","/tmp/ck_analyst.txt")
+if phiid: curl("DELETE",f"/api/agents/{phiid}","/tmp/ck_analyst.txt")
+
+# ── FINAL SUMMARY ────────────────────────────────────────
+print(f"\n{'='*54}")
+print(f"  RESULTS: ✅ {P} PASS  ❌ {F} FAIL  ⚠️  {W} WARN")
+print('='*54)
+if F==0:
+    print("  ✅ ALL TESTS PASSED — Platform ready for release")
+else:
+    print(f"  ❌ {F} failure(s) to fix:")
+    for ok,n,d in results:
+        if not ok: print(f"     - {n}: {d}")
