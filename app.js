@@ -2763,7 +2763,7 @@ function renderBlast() {
         var a = s.agent;
         var id = String(a.id||'').replace(/"/g,'');
         var color = RC(s.blastScore);
-        return '<tr onclick="openDrawer(''+id+'')">'
+        return '<tr data-id="'+id+'" onclick="openDrawer(this.dataset.id)">'
           + '<td><div style="font-weight:700;color:var(--text-primary)">'+escapeHtml(a.name||'')+'</div>'
           + (a.phi?'<span class="tag phi">PHI</span>':'')+( a.shadow?'<span class="tag shadow">Shadow</span>':'')+'</td>'
           + '<td><div style="display:flex;align-items:center;gap:8px">'
@@ -2848,7 +2848,7 @@ function renderAdmin() {
     + '<select style="width:100%;padding:8px 10px;border:1px solid var(--glass-border-dim);border-radius:6px;background:var(--bg-secondary);color:var(--text-primary);font-size:12px">'
     + '<option>30 days</option><option>60 days</option><option selected>90 days</option><option>180 days</option>'
     + '</select></div>'
-    + '<button class="btn sm primary" onclick="showToast('Settings saved','success')">Save settings</button>'
+    + '<button class="btn sm primary" onclick="showToast(&quot;Settings saved&quot;,&quot;success&quot;)">Save settings</button>'
     + '</div></div></div>';
 
   // Load AI keys after render
@@ -4301,7 +4301,7 @@ function renderCoverage() {
           + '<div style="font-size:10px;color:var(--text-muted);margin-bottom:3px">Agents: <strong style="color:var(--text-primary)">' + s.agents + '</strong></div>'
           + '<div style="font-size:10px;color:var(--text-muted);margin-bottom:10px">Last scan: ' + s.lastScan + '</div>'
           + '<span style="font-size:9px;font-weight:700;padding:2px 8px;border-radius:99px;background:' + color + '18;color:' + color + '">' + label + '</span>'
-          + (s.connected ? '' : '<button onclick="go('integrations')" style="float:right;padding:2px 8px;font-size:9px;background:var(--brand);color:#fff;border:none;border-radius:4px;cursor:pointer">Connect</button>')
+          + (s.connected ? '' : '<button onclick="go(&quot;integrations&quot;)" style="float:right;padding:2px 8px;font-size:9px;background:var(--brand);color:#fff;border:none;border-radius:4px;cursor:pointer">Connect</button>')
           + '</div>';
       }).join('')
     + '</div></div>'
@@ -4313,7 +4313,7 @@ function renderCoverage() {
           + '<div style="width:7px;height:7px;border-radius:50%;background:#ef4444;flex-shrink:0"></div>'
           + '<div style="flex:1"><div style="font-size:12px;font-weight:600;color:var(--text-primary)">' + escapeHtml(s.name) + '</div>'
           + '<div style="font-size:10px;color:var(--text-muted)">' + s.cat + ' &middot; Not connected</div></div>'
-          + '<button onclick="go('integrations')" style="padding:3px 10px;font-size:10px;background:var(--brand);color:#fff;border:none;border-radius:4px;cursor:pointer">Connect</button>'
+          + '<button onclick="go(&quot;integrations&quot;)" style="padding:3px 10px;font-size:10px;background:var(--brand);color:#fff;border:none;border-radius:4px;cursor:pointer">Connect</button>'
           + '</div>';
       }).join('')
     + '</div></div></div>';
@@ -4475,7 +4475,7 @@ function openBAAForm(agentId) {
     + '<div style="font-size:24px">&#127973;</div>'
     + '<div style="flex:1"><div style="font-size:15px;font-weight:700;color:var(--text-primary)">Business Associate Agreement</div>'
     + '<div style="font-size:11px;color:var(--text-muted);margin-top:2px">'+escapeHtml(agent.name||'')+'</div></div>'
-    + '<button onclick="document.getElementById('baa-modal').remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--text-muted)">&#10005;</button>'
+    + '<button onclick="document.getElementById(&quot;baa-modal&quot;).remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--text-muted)">&#10005;</button>'
     + '</div>'
     + '<div style="padding:20px">'
     + '<div style="background:rgba(99,102,241,0.06);border:1px solid rgba(99,102,241,0.2);border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:11px;color:var(--brand)">'
@@ -4501,7 +4501,7 @@ function openBAAForm(agentId) {
     + '<input id="baa-doc-url" type="text" placeholder="https://docs.company.com/baa/..." style="width:100%;padding:8px 10px;border:1px solid var(--glass-border-dim);border-radius:8px;background:var(--bg-secondary);color:var(--text-primary);font-size:12px;box-sizing:border-box"></div>'
     + '<div style="display:flex;gap:8px">'
     + '<button data-id="'+agentId+'" onclick="saveBAAData(this.dataset.id)" style="flex:1;padding:10px;background:var(--brand);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">Save BAA Record</button>'
-    + '<button onclick="document.getElementById('baa-modal').remove()" style="padding:10px 16px;background:transparent;border:1px solid var(--glass-border-dim);border-radius:8px;font-size:13px;cursor:pointer;color:var(--text-primary)">Cancel</button>'
+    + '<button onclick="document.getElementById(&quot;baa-modal&quot;).remove()" style="padding:10px 16px;background:transparent;border:1px solid var(--glass-border-dim);border-radius:8px;font-size:13px;cursor:pointer;color:var(--text-primary)">Cancel</button>'
     + '</div></div></div>';
 
   // Set existing values
