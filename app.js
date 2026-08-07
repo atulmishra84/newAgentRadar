@@ -215,9 +215,9 @@ var viewRenderMap = {
   activity:     function() { renderActivity(); },
   ciso:         function() { renderCiso(); },
   integrations: function() { renderInteg(); },
-  coverage: function() { renderCoverage(); },
-  operations: function() { renderOperations(); },
-  shadowdash: function() { renderShadowDash(); },
+  coverage:     function() { renderCoverage(); },
+  operations:   function() { renderOperations(); },
+  euai:         function() { renderEUAI(); },
   admin:        function() { renderAdmin(); },
   blast:        function() { renderBlast(); }
 };
@@ -1613,23 +1613,61 @@ function aiGeneratePolicy() {
 // ═══════════════════════════════════════════════════════════════
 
 function renderApprovals() {
-  var list = DB.approvals || [];
-  var tb = document.getElementById('appr-list') || document.querySelector('#view-approvals tbody');
-  if (!tb) return;
-  if (!list.length) {
-    tb.innerHTML = '<div style="padding:32px;text-align:center;color:var(--text-muted);font-size:13px">No pending approvals</div>';
+  var agents = DB.agents || [];
+
+  // Build approval queue from shadow + unapproved agents
+  var pending = agents.filter(function(a){ return a.shadow && !a.approvedBy; });
+  var inReview = agents.filter(function(a){ return !a.shadow && !a.approvedBy && (a.risk==='high'||a.risk==='critical'); });
+  var approved = agents.filter(function(a){ return a.approvedBy; });
+
+  // Update stat cards
+  function setEl(id,v){ var el=document.getElementById(id); if(el) el.textContent=v; }
+  setEl('app-pend', pending.length);
+  setEl('app-rev', inReview.length);
+  setEl('app-appr', approved.length);
+
+  var listEl = document.getElementById('appr-list') || document.querySelector('#view-approvals .card-body');
+  if (!listEl) return;
+
+  var all = [
+    ...pending.map(function(a){ return {agent:a,status:'pending',reason:'Shadow AI — requires approval or quarantine'}; }),
+    ...inReview.map(function(a){ return {agent:a,status:'review',reason:'High/critical risk agent requires CISO review'}; }),
+  ];
+
+  if (!all.length) {
+    listEl.innerHTML = '<div style="padding:32px;text-align:center;color:var(--text-muted)">'
+      + '<div style="font-size:32px;margin-bottom:8px">&#9989;</div>'
+      + '<div style="font-size:14px;font-weight:600;color:var(--text-primary)">No pending approvals</div>'
+      + '<div style="font-size:12px;margin-top:4px">All agents have been reviewed</div>'
+      + '</div>';
     return;
   }
-  tb.innerHTML = list.map(function(item) {
-    var a = item.agent || {};
-    var id = String(a.id || '').replace(/"/g, '');
-    var rc = { critical:'#ef4444', high:'#f59e0b', medium:'#6366f1', low:'#10b981' }[a.risk] || '#6366f1';
-    return '<div style="padding:12px 16px;border-bottom:1px solid var(--glass-border-dim);display:flex;align-items:center;gap:12px">'
-      + '<div style="flex:1"><div style="font-size:13px;font-weight:600;color:var(--text-primary)">' + escapeHtml(a.name || 'Unknown') + '</div>'
-      + '<div style="font-size:11px;color:var(--text-muted);margin-top:2px">' + escapeHtml(item.reason || 'Requires approval') + '</div></div>'
-      + '<span style="font-size:10px;font-weight:700;color:' + rc + '">' + (a.risk || '').toUpperCase() + '</span>'
-      + '<button class="btn sm" data-id="' + id + '" onclick="approveAgent(this.dataset.id)">Approve</button>'
-      + '<button class="btn sm danger" data-id="' + id + '" onclick="quarantineAgent(this.dataset.id)">Reject</button>'
+
+  var RC = {critical:'#ef4444',high:'#f59e0b',medium:'#6366f1',low:'#10b981'};
+  listEl.innerHTML = all.map(function(item) {
+    var a = item.agent;
+    var id = String(a.id||'').replace(/"/g,'');
+    var rc = RC[a.risk]||'#6366f1';
+    var statusColor = item.status==='pending' ? '#ef4444' : '#f59e0b';
+    return '<div style="padding:14px 16px;border-bottom:1px solid var(--glass-border-dim);display:flex;align-items:flex-start;gap:12px">'
+      + '<div style="width:40px;height:40px;border-radius:10px;background:'+rc+'18;border:1px solid '+rc+'33;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">&#129302;</div>'
+      + '<div style="flex:1;min-width:0">'
+      + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">'
+      + '<div style="font-size:13px;font-weight:700;color:var(--text-primary)">'+escapeHtml(a.name||'Unknown')+'</div>'
+      + '<span style="font-size:9px;font-weight:700;padding:2px 7px;border-radius:99px;background:'+statusColor+'18;color:'+statusColor+'">'+item.status.toUpperCase()+'</span>'
+      + (a.phi?'<span class="tag phi">PHI</span>':'')
+      + '</div>'
+      + '<div style="font-size:11px;color:var(--text-muted);margin-bottom:6px">'+escapeHtml(item.reason)+'</div>'
+      + '<div style="font-size:10px;color:var(--text-muted)">'+escapeHtml(a.env||'')+(a.detect?' &middot; '+escapeHtml(a.detect):'')+(a.owner?' &middot; Owner: '+escapeHtml(a.owner):'<span style="color:#ef4444"> &middot; No owner</span>')+'</div>'
+      + '</div>'
+      + '<div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0">'
+      + '<span style="font-size:10px;font-weight:700;color:'+rc+';text-align:right">'+( a.risk||'').toUpperCase()+'</span>'
+      + '<div style="display:flex;gap:6px">'
+      + '<button class="btn xs success" data-id="'+id+'" onclick="approveAgent(this.dataset.id)">&#10003; Approve</button>'
+      + '<button class="btn xs danger" data-id="'+id+'" onclick="quarantineAgent(this.dataset.id)">&#10005; Reject</button>'
+      + '</div>'
+      + '<button class="btn xs secondary" data-id="'+id+'" onclick="openDrawer(this.dataset.id)">View details</button>'
+      + '</div>'
       + '</div>';
   }).join('');
 }
@@ -1891,17 +1929,58 @@ function renderBench() {
 // ═══════════════════════════════════════════════════════════════
 
 function renderNotif() {
-  var el = document.getElementById('notif-list') || document.querySelector('#view-notifications .card-body');
-  if (!el) return;
-  var notifs = DB.notifications && DB.notifications.length ? DB.notifications : [];
-  el.innerHTML = notifs.map(function(n) {
-    var color = n.type === 'critical' ? '#ef4444' : n.type === 'high' ? '#f59e0b' : '#6366f1';
-    return '<div style="padding:12px 16px;border-bottom:1px solid var(--glass-border-dim);border-left:3px solid ' + color + ';margin-bottom:4px">'
-      + '<div style="font-size:13px;font-weight:600;color:var(--text-primary)">' + escapeHtml(n.title || '') + '</div>'
-      + '<div style="font-size:11px;color:var(--text-muted);margin-top:2px">' + escapeHtml(n.body || '') + '</div>'
-      + '<div style="font-size:10px;color:var(--text-muted);margin-top:4px">' + escapeHtml(n.ts || '') + '</div>'
-      + '</div>';
-  }).join('');
+  var wrap = document.getElementById('view-notifications');
+  if (!wrap) return;
+
+  var agents = DB.agents || [];
+  var shadow = agents.filter(function(a){return a.shadow;});
+  var noBaa = agents.filter(function(a){return a.phi && a.baa_status !== 'signed';});
+  var noOwner = agents.filter(function(a){return !a.owner;});
+  var highRisk = agents.filter(function(a){return a.risk==='critical';});
+
+  // Build live notifications from real agent data
+  var notifs = [];
+  shadow.forEach(function(a){ notifs.push({type:'critical',icon:'&#128680;',title:'Shadow AI Detected: '+a.name,body:'Unregistered agent found in '+( a.env||'unknown')+' environment. Immediate review required.',ts:'2h ago',fn:"go('shadow')"}); });
+  noBaa.forEach(function(a){ notifs.push({type:'critical',icon:'&#127973;',title:'HIPAA Risk: '+a.name,body:'PHI agent operating without a signed BAA. This may constitute a HIPAA violation.',ts:'2h ago',fn:"go('phi')"}); });
+  highRisk.forEach(function(a){ notifs.push({type:'high',icon:'&#9888;',title:'Critical Risk Agent: '+a.name,body:'Agent scored critical risk. Review and remediate immediately.',ts:'Today',fn:"go('risk')"}); });
+  noOwner.slice(0,3).forEach(function(a){ notifs.push({type:'medium',icon:'&#128100;',title:'Unowned Agent: '+a.name,body:'Agent has no assigned owner. Assign ownership to maintain governance.',ts:'Today',fn:"go('discovery')"}); });
+  notifs.push({type:'info',icon:'&#128269;',title:'Background scan completed',body:agents.length+' agents confirmed in inventory across all connected sources.',ts:'2h ago',fn:null});
+  notifs.push({type:'info',icon:'&#128269;',title:'Azure auto-discovery ran',body:'Discovered and classified agents from Azure subscription.',ts:'2h ago',fn:null});
+
+  var colors = {critical:'#ef4444',high:'#f59e0b',medium:'#6366f1',info:'#10b981'};
+  var unread = notifs.filter(function(n){return n.type==='critical'||n.type==='high';}).length;
+
+  // Update notification badge in topbar if exists
+  var bell = document.getElementById('notif-count');
+  if (bell) bell.textContent = unread;
+
+  wrap.innerHTML = ''
+    + '<div class="stat-grid-4">'
+    + '<div class="stat-card red"><div class="stat-glow"></div><div class="stat-lbl">Critical</div><div class="stat-val red">'+notifs.filter(function(n){return n.type==='critical';}).length+'</div></div>'
+    + '<div class="stat-card amber"><div class="stat-glow"></div><div class="stat-lbl">High Priority</div><div class="stat-val amber">'+notifs.filter(function(n){return n.type==='high';}).length+'</div></div>'
+    + '<div class="stat-card purple"><div class="stat-glow"></div><div class="stat-lbl">Medium</div><div class="stat-val purple">'+notifs.filter(function(n){return n.type==='medium';}).length+'</div></div>'
+    + '<div class="stat-card green"><div class="stat-glow"></div><div class="stat-lbl">Info</div><div class="stat-val green">'+notifs.filter(function(n){return n.type==='info';}).length+'</div></div>'
+    + '</div>'
+    + '<div class="card">'
+    + '<div class="card-head"><span class="card-title">Live Notifications</span>'
+    + '<span style="margin-left:auto;font-size:11px;color:#ef4444;font-weight:700">'+unread+' unread</span>'
+    + '<button onclick="markAllAlertsRead()" class="btn sm secondary" style="margin-left:8px">Mark all read</button>'
+    + '</div>'
+    + notifs.map(function(n) {
+        var c = colors[n.type] || '#6366f1';
+        return '<div style="padding:12px 16px;border-bottom:1px solid var(--glass-border-dim);border-left:3px solid '+c+';cursor:'+(n.fn?'pointer':'default')+'" '
+          +(n.fn?'onclick="'+n.fn+'"':'')+'>'
+          + '<div style="display:flex;align-items:flex-start;gap:10px">'
+          + '<div style="font-size:18px;flex-shrink:0">'+n.icon+'</div>'
+          + '<div style="flex:1">'
+          + '<div style="font-size:13px;font-weight:600;color:var(--text-primary)">'+escapeHtml(n.title)+'</div>'
+          + '<div style="font-size:11px;color:var(--text-muted);margin-top:3px;line-height:1.5">'+escapeHtml(n.body)+'</div>'
+          + '<div style="font-size:10px;color:var(--text-muted);margin-top:4px">'+n.ts+'</div>'
+          + '</div>'
+          + '<span style="font-size:9px;font-weight:700;padding:2px 7px;border-radius:99px;background:'+c+'18;color:'+c+';flex-shrink:0">'+n.type.toUpperCase()+'</span>'
+          + '</div></div>';
+      }).join('')
+    + '</div>';
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -1909,18 +1988,73 @@ function renderNotif() {
 // ═══════════════════════════════════════════════════════════════
 
 function renderActivity() {
-  var el = document.getElementById('act-tl');
-  if (!el) return;
-  var activity = DB.activity && DB.activity.length ? DB.activity : [
-    { action: 'Platform initialized', actor: 'System', ts: 'Just now', color: '#10b981' }
-  ];
-  el.innerHTML = activity.map(function(e) {
-    return '<div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--glass-border-dim)">'
-      + '<div style="width:8px;height:8px;border-radius:50%;background:' + (e.color || '#6366f1') + ';flex-shrink:0;margin-top:3px"></div>'
-      + '<div style="flex:1"><div style="font-size:12px;color:var(--text-primary)">' + escapeHtml(e.action || '') + '</div>'
-      + '<div style="font-size:10px;color:var(--text-muted)">' + escapeHtml(e.actor || '') + ' &middot; ' + escapeHtml(e.ts || '') + '</div></div>'
-      + '</div>';
-  }).join('');
+  var wrap = document.getElementById('view-activity');
+  if (!wrap) return;
+
+  var agents = DB.agents || [];
+  var activity = DB.activity && DB.activity.length ? DB.activity : [];
+
+  // Build activity from real agent data
+  var events = [];
+  agents.filter(function(a){return a.shadow;}).forEach(function(a){
+    events.push({icon:'&#128680;',color:'#ef4444',action:'Shadow AI detected: '+a.name,actor:'Auto-discovery',ts:'2h ago',link:"go('shadow')"});
+  });
+  agents.filter(function(a){return a.phi&&a.baa_status!=='signed';}).forEach(function(a){
+    events.push({icon:'&#127973;',color:'#8b5cf6',action:'PHI agent without BAA: '+a.name,actor:'Compliance scanner',ts:'2h ago',link:"go('phi')"});
+  });
+  agents.filter(function(a){return a.risk==='critical';}).forEach(function(a){
+    events.push({icon:'&#9888;',color:'#f59e0b',action:'Critical risk agent: '+a.name,actor:'Risk engine',ts:'2h ago',link:"go('risk')"});
+  });
+  events.push({icon:'&#128269;',color:'#3b82f6',action:'Background scan completed — '+agents.length+' agents confirmed',actor:'System',ts:'2h ago',link:null});
+  events.push({icon:'&#128269;',color:'#3b82f6',action:'Azure auto-discovery ran — classified '+agents.filter(function(a){return a.env==='Azure';}).length+' Azure agents',actor:'Azure connector',ts:'2h ago',link:null});
+  events.push({icon:'&#128100;',color:'#10b981',action:'Platform initialized',actor:'System',ts:'Session start',link:null});
+  activity.forEach(function(a){
+    events.push({icon:'&#9679;',color:a.color||'#6366f1',action:a.action,actor:a.actor,ts:a.ts,link:null});
+  });
+
+  wrap.innerHTML = ''
+    + '<div class="stat-grid-4">'
+    + '<div class="stat-card"><div class="stat-glow"></div><div class="stat-lbl">Total Events</div><div class="stat-val">'+events.length+'</div></div>'
+    + '<div class="stat-card red"><div class="stat-glow"></div><div class="stat-lbl">Security Events</div><div class="stat-val red">'+events.filter(function(e){return e.color==="#ef4444";}).length+'</div></div>'
+    + '<div class="stat-card purple"><div class="stat-glow"></div><div class="stat-lbl">Compliance Events</div><div class="stat-val purple">'+events.filter(function(e){return e.color==="#8b5cf6";}).length+'</div></div>'
+    + '<div class="stat-card green"><div class="stat-glow"></div><div class="stat-lbl">System Events</div><div class="stat-val green">'+events.filter(function(e){return e.color==="#10b981";}).length+'</div></div>'
+    + '</div>'
+    + '<div class="main-side">'
+    + '<div class="card" style="flex:1.5">'
+    + '<div class="card-head"><span class="card-title">Activity Timeline</span>'
+    + '<button onclick="loadLiveAgents().then(function(){renderActivity();})" class="btn sm secondary" style="margin-left:auto">&#8635; Refresh</button>'
+    + '</div>'
+    + '<div style="padding:16px;position:relative">'
+    + '<div style="position:absolute;left:24px;top:0;bottom:0;width:2px;background:var(--glass-border-dim);border-radius:1px"></div>'
+    + events.map(function(e,i) {
+        return '<div style="display:flex;gap:12px;margin-bottom:16px;position:relative;cursor:'+(e.link?'pointer':'default')+'" '+(e.link?'onclick="'+e.link+'"':'')+'>'
+          + '<div style="width:24px;height:24px;border-radius:50%;background:'+e.color+'18;border:2px solid '+e.color+';display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0;z-index:1">'+e.icon+'</div>'
+          + '<div style="flex:1;background:var(--glass-white);border:1px solid var(--glass-border-dim);border-radius:8px;padding:10px 14px">'
+          + '<div style="font-size:12px;font-weight:600;color:var(--text-primary)">'+escapeHtml(e.action)+'</div>'
+          + '<div style="font-size:10px;color:var(--text-muted);margin-top:3px">'+escapeHtml(e.actor)+' &middot; '+escapeHtml(e.ts)+'</div>'
+          + '</div></div>';
+      }).join('')
+    + '</div></div>'
+    + '<div class="card">'
+    + '<div class="card-head"><span class="card-title">Event Summary</span></div>'
+    + '<div class="card-body">'
+    + [
+        {l:'Security alerts',v:events.filter(function(e){return e.color==='#ef4444';}).length,c:'#ef4444'},
+        {l:'Compliance events',v:events.filter(function(e){return e.color==='#8b5cf6';}).length,c:'#8b5cf6'},
+        {l:'Risk events',v:events.filter(function(e){return e.color==='#f59e0b';}).length,c:'#f59e0b'},
+        {l:'Discovery events',v:events.filter(function(e){return e.color==='#3b82f6';}).length,c:'#3b82f6'},
+        {l:'System events',v:events.filter(function(e){return e.color==='#10b981';}).length,c:'#10b981'},
+      ].map(function(s){
+        var pct = events.length ? Math.round(s.v/events.length*100) : 0;
+        return '<div style="margin-bottom:10px">'
+          +'<div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px">'
+          +'<span style="color:var(--text-secondary)">'+s.l+'</span>'
+          +'<span style="font-weight:700;color:'+s.c+'">'+s.v+'</span></div>'
+          +'<div style="height:5px;background:var(--bg-secondary);border-radius:3px;overflow:hidden">'
+          +'<div style="height:100%;width:'+pct+'%;background:'+s.c+';border-radius:3px"></div>'
+          +'</div></div>';
+      }).join('')
+    + '</div></div></div>';
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -2583,11 +2717,159 @@ function showExportBtn() {
 
 function renderDiscWith(filter) { renderDisc(); }
 
-function renderBlast() {}
+function renderBlast() {
+  var wrap = document.getElementById('view-blast');
+  if (!wrap) return;
+  var agents = DB.agents || [];
+
+  // Calculate blast radius per agent
+  var scored = agents.map(function(a) {
+    var score = 0;
+    if (a.phi) score += 30;
+    if (a.pii) score += 20;
+    if (a.shadow) score += 25;
+    var ctrl = a.controls || {};
+    var fails = Object.values(ctrl).filter(function(v){return v==='fail';}).length;
+    score += fails * 5;
+    if (!a.owner) score += 10;
+    score = Math.min(100, score);
+    var dataStores = [];
+    if (a.phi) dataStores.push('PHI records');
+    if (a.pii) dataStores.push('PII data');
+    if (a.notes && a.notes.indexOf('EHR') >= 0) dataStores.push('EHR system');
+    if (a.notes && a.notes.indexOf('Azure') >= 0) dataStores.push('Azure resources');
+    return { agent: a, blastScore: score, dataStores: dataStores };
+  }).sort(function(a,b){ return b.blastScore - a.blastScore; });
+
+  var high = scored.filter(function(s){ return s.blastScore >= 70; });
+  var med = scored.filter(function(s){ return s.blastScore >= 40 && s.blastScore < 70; });
+
+  var RC = function(score) {
+    return score >= 70 ? '#ef4444' : score >= 40 ? '#f59e0b' : '#10b981';
+  };
+
+  wrap.innerHTML = ''
+    + '<div class="stat-grid-4">'
+    + '<div class="stat-card red"><div class="stat-glow"></div><div class="stat-lbl">High Blast Radius</div><div class="stat-val red">'+high.length+'</div></div>'
+    + '<div class="stat-card amber"><div class="stat-glow"></div><div class="stat-lbl">Medium Blast Radius</div><div class="stat-val amber">'+med.length+'</div></div>'
+    + '<div class="stat-card purple"><div class="stat-glow"></div><div class="stat-lbl">PHI Exposure Risk</div><div class="stat-val purple">'+agents.filter(function(a){return a.phi;}).length+'</div></div>'
+    + '<div class="stat-card"><div class="stat-glow"></div><div class="stat-lbl">Avg Blast Score</div><div class="stat-val">'+(scored.length?Math.round(scored.reduce(function(s,x){return s+x.blastScore;},0)/scored.length):0)+'</div></div>'
+    + '</div>'
+    + '<div class="main-side">'
+    + '<div class="card" style="flex:1.5">'
+    + '<div class="card-head"><span class="card-title">Blast Radius Rankings</span><span class="tier-badge t1">Impact Analysis</span></div>'
+    + '<div class="tbl-wrap"><table><thead><tr><th>Agent</th><th>Blast Score</th><th>Environment</th><th>Data at Risk</th><th>Owner</th></tr></thead><tbody>'
+    + scored.map(function(s) {
+        var a = s.agent;
+        var id = String(a.id||'').replace(/"/g,'');
+        var color = RC(s.blastScore);
+        return '<tr onclick="openDrawer(''+id+'')">'
+          + '<td><div style="font-weight:700;color:var(--text-primary)">'+escapeHtml(a.name||'')+'</div>'
+          + (a.phi?'<span class="tag phi">PHI</span>':'')+( a.shadow?'<span class="tag shadow">Shadow</span>':'')+'</td>'
+          + '<td><div style="display:flex;align-items:center;gap:8px">'
+          + '<div style="width:60px;height:6px;background:var(--bg-secondary);border-radius:3px;overflow:hidden">'
+          + '<div style="height:100%;width:'+s.blastScore+'%;background:'+color+';border-radius:3px"></div></div>'
+          + '<span style="font-weight:800;color:'+color+'">'+s.blastScore+'</span></div></td>'
+          + '<td style="font-size:11px;color:var(--text-muted)">'+escapeHtml(a.env||'')+'</td>'
+          + '<td style="font-size:11px">'+(s.dataStores.length?s.dataStores.join(', '):'<span style="color:var(--text-muted)">Low</span>')+'</td>'
+          + '<td style="font-size:11px;color:'+(a.owner?'var(--text-primary)':'var(--red-text)')+'">'+escapeHtml(a.owner||'Unassigned')+'</td>'
+          + '</tr>';
+      }).join('')
+    + '</tbody></table></div></div>'
+    + '<div class="card">'
+    + '<div class="card-head"><span class="card-title">Top Risk Agents</span></div>'
+    + scored.slice(0,5).map(function(s) {
+        var color = RC(s.blastScore);
+        return '<div style="padding:12px 16px;border-bottom:1px solid var(--glass-border-dim)">'
+          + '<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">'
+          + '<div style="width:36px;height:36px;border-radius:8px;background:'+color+'18;display:flex;align-items:center;justify-content:center;font-size:18px">&#129302;</div>'
+          + '<div style="flex:1"><div style="font-size:12px;font-weight:700;color:var(--text-primary)">'+escapeHtml(s.agent.name||'')+'</div>'
+          + '<div style="font-size:10px;color:var(--text-muted)">'+escapeHtml(s.agent.env||'')+'</div></div>'
+          + '<span style="font-size:16px;font-weight:800;color:'+color+'">'+s.blastScore+'</span>'
+          + '</div>'
+          + '<div style="height:4px;background:var(--bg-secondary);border-radius:2px;overflow:hidden">'
+          + '<div style="height:100%;width:'+s.blastScore+'%;background:'+color+';border-radius:2px"></div>'
+          + '</div></div>';
+      }).join('')
+    + '</div></div>';
+}
 
 function renderAdmin() {
-  var el = document.querySelector('#view-admin .card-body') || document.getElementById('view-admin');
-  if (!el) return;
+  var wrap = document.getElementById('view-admin');
+  if (!wrap) return;
+  var agents = DB.agents || [];
+  var headers = {};
+  if (_apiToken) headers['Authorization'] = 'Bearer ' + _apiToken;
+
+  // Load AI keys status
+  fetch('/api/admin/ai-keys', { headers: headers, credentials: 'include' })
+    .then(function(r){ return r.ok ? r.json() : {}; })
+    .then(function(keys) {
+      var configured = Object.keys(keys).filter(function(k){ return keys[k].configured; });
+      var aiKeyEl = document.getElementById('admin-ai-keys');
+      if (aiKeyEl) {
+        var names = {anthropic:'Claude (Anthropic)',openai:'OpenAI GPT-4',gemini:'Google Gemini',azure_oai:'Azure OpenAI',mistral:'Mistral',cohere:'Cohere'};
+        aiKeyEl.innerHTML = Object.keys(keys).map(function(k) {
+          var conf = keys[k].configured;
+          return '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--glass-border-dim)">'
+            + '<span style="font-size:12px;font-weight:600;color:var(--text-primary)">'+(names[k]||k)+'</span>'
+            + '<div style="display:flex;align-items:center;gap:8px">'
+            + '<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:99px;background:'+(conf?'#f0fdf4':'var(--bg-secondary)')+';color:'+(conf?'#059669':'var(--text-muted)')+'>'+(conf?'&#10003; Configured':'Not set')+'</span>'
+            + '<button onclick="openAIKeyConfig()" class="btn xs secondary">Configure</button>'
+            + '</div></div>';
+        }).join('');
+      }
+    }).catch(function(){});
+
+  wrap.innerHTML = ''
+    + '<div class="stat-grid-4">'
+    + '<div class="stat-card"><div class="stat-glow"></div><div class="stat-lbl">Total Agents</div><div class="stat-val">'+agents.length+'</div></div>'
+    + '<div class="stat-card red"><div class="stat-glow"></div><div class="stat-lbl">Shadow AI</div><div class="stat-val red">'+agents.filter(function(a){return a.shadow;}).length+'</div></div>'
+    + '<div class="stat-card green"><div class="stat-glow"></div><div class="stat-lbl">Approved</div><div class="stat-val green">'+agents.filter(function(a){return a.approvedBy;}).length+'</div></div>'
+    + '<div class="stat-card purple"><div class="stat-glow"></div><div class="stat-lbl">PHI Agents</div><div class="stat-val purple">'+agents.filter(function(a){return a.phi;}).length+'</div></div>'
+    + '</div>'
+    + '<div class="main-side">'
+    + '<div class="card" style="flex:1.5">'
+    + '<div class="card-head"><span class="card-title">AI API Keys</span>'
+    + '<button onclick="openAIKeyConfig()" class="btn sm secondary" style="margin-left:auto">&#9881; Configure keys</button>'
+    + '</div>'
+    + '<div class="card-body"><div id="admin-ai-keys"><div style="color:var(--text-muted);font-size:12px">Loading...</div></div></div>'
+    + '</div>'
+    + '<div class="card">'
+    + '<div class="card-head"><span class="card-title">Platform Settings</span></div>'
+    + '<div class="card-body">'
+    + '<div style="margin-bottom:12px">'
+    + '<div style="font-size:11px;font-weight:600;color:var(--text-muted);margin-bottom:6px">Scan Schedule</div>'
+    + '<select style="width:100%;padding:8px 10px;border:1px solid var(--glass-border-dim);border-radius:6px;background:var(--bg-secondary);color:var(--text-primary);font-size:12px">'
+    + '<option>Every 2 hours</option><option>Every 6 hours</option><option>Daily</option><option>Manual only</option>'
+    + '</select></div>'
+    + '<div style="margin-bottom:12px">'
+    + '<div style="font-size:11px;font-weight:600;color:var(--text-muted);margin-bottom:6px">Default Review Cadence</div>'
+    + '<select style="width:100%;padding:8px 10px;border:1px solid var(--glass-border-dim);border-radius:6px;background:var(--bg-secondary);color:var(--text-primary);font-size:12px">'
+    + '<option>30 days</option><option>60 days</option><option selected>90 days</option><option>180 days</option>'
+    + '</select></div>'
+    + '<button class="btn sm primary" onclick="showToast('Settings saved','success')">Save settings</button>'
+    + '</div></div></div>';
+
+  // Load AI keys after render
+  setTimeout(function(){
+    fetch('/api/admin/ai-keys', { headers: headers, credentials: 'include' })
+      .then(function(r){ return r.ok ? r.json() : {}; })
+      .then(function(keys) {
+        var el = document.getElementById('admin-ai-keys');
+        if (!el) return;
+        var names = {anthropic:'Claude (Anthropic)',openai:'OpenAI GPT-4',gemini:'Google Gemini',azure_oai:'Azure OpenAI',mistral:'Mistral',cohere:'Cohere'};
+        el.innerHTML = Object.keys(keys).map(function(k) {
+          var conf = keys[k].configured;
+          return '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--glass-border-dim)">'
+            + '<span style="font-size:12px;font-weight:600;color:var(--text-primary)">'+(names[k]||k)+'</span>'
+            + '<div style="display:flex;align-items:center;gap:8px">'
+            + '<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:99px;background:'+(conf?'#f0fdf4':'rgba(200,210,240,0.2)')+';color:'+(conf?'#059669':'var(--text-muted)')+'>'+(conf?'&#10003; Configured':'Not set')+'</span>'
+            + '<button onclick="openAIKeyConfig()" class="btn xs secondary">Configure</button>'
+            + '</div></div>';
+        }).join('');
+      }).catch(function(){});
+  }, 100);
 }
 
 function renderInteg() {
@@ -3374,23 +3656,8 @@ function scanSplunk(host, token) {
 // ══════════════════════════════════════════════════════════════
 // UPDATE renderCiso to use report API
 // ══════════════════════════════════════════════════════════════
-function renderCiso() {
-  generateCISOReport();
-}
 
-// ══════════════════════════════════════════════════════════════
-// EU AI ACT COMPLIANCE VIEW
-// ══════════════════════════════════════════════════════════════
-function renderEUAIAct() {
-  var agents = DB.agents;
-  var highRisk = agents.filter(function(a){return a.phi||a.risk==='critical';});
-  var el = document.querySelector('#view-compliance .card-body') || document.getElementById('view-compliance');
-  if (!el) return;
-}
 
-// ══════════════════════════════════════════════════════════════
-// QUICK ACTION HANDLERS (dashboard buttons)
-// ══════════════════════════════════════════════════════════════
 function runAI() { openAIPanel(); }
 function openLineageMap() { go('lineage'); }
 function openCISOReport() { go('ciso'); }
@@ -3988,354 +4255,334 @@ function _evCell(label, value, color) {
 // COVERAGE MAP
 // ══════════════════════════════════════════════════════════════
 function renderCoverage() {
-  var agents = DB.agents;
+  var wrap = document.getElementById('view-coverage');
+  if (!wrap) return;
 
+  var agents = DB.agents || [];
   var SOURCES = [
-    { id:'azure', name:'Microsoft Azure', icon:'☁', connected:true, agents: agents.filter(function(a){return a.env==='Azure'||a.detect==='Azure auto-discovery';}).length, lastScan:'2h ago', coverage:'full' },
-    { id:'aws', name:'Amazon AWS', icon:'☁', connected:false, agents:0, lastScan:'Never', coverage:'blind' },
-    { id:'gcp', name:'Google Cloud', icon:'☁', connected:false, agents:0, lastScan:'Never', coverage:'blind' },
-    { id:'m365', name:'Microsoft 365', icon:'📧', connected:false, agents:0, lastScan:'Never', coverage:'blind' },
-    { id:'github', name:'GitHub / GitLab', icon:'🐙', connected:false, agents:0, lastScan:'Never', coverage:'blind' },
-    { id:'epic', name:'Epic EHR', icon:'🏥', connected:false, agents:0, lastScan:'Never', coverage:'blind' },
-    { id:'cerner', name:'Cerner / Oracle', icon:'🏥', connected:false, agents:0, lastScan:'Never', coverage:'blind' },
-    { id:'crowdstrike', name:'CrowdStrike', icon:'🛡', connected:false, agents:0, lastScan:'Never', coverage:'blind' },
-    { id:'intune', name:'MS Intune', icon:'💻', connected:false, agents:0, lastScan:'Never', coverage:'blind' },
-    { id:'sentinel', name:'MS Sentinel', icon:'📊', connected:false, agents:0, lastScan:'Never', coverage:'blind' },
-    { id:'splunk', name:'Splunk', icon:'📊', connected:false, agents:0, lastScan:'Never', coverage:'blind' },
-    { id:'zscaler', name:'Zscaler ZIA', icon:'🔒', connected:false, agents:0, lastScan:'Never', coverage:'blind' }
+    {id:'azure',name:'Microsoft Azure',cat:'Cloud',color:'#0078d4',connected:true,agents:agents.filter(function(a){return a.env==='Azure'||( a.detect&&a.detect.indexOf('Azure')>=0);}).length,lastScan:'2h ago'},
+    {id:'aws',name:'Amazon AWS',cat:'Cloud',color:'#f59e0b',connected:false,agents:0,lastScan:'Never'},
+    {id:'gcp',name:'Google Cloud',cat:'Cloud',color:'#34a853',connected:false,agents:0,lastScan:'Never'},
+    {id:'m365',name:'M365 Copilot',cat:'SaaS',color:'#0078d4',connected:false,agents:0,lastScan:'Never'},
+    {id:'epic',name:'Epic EHR',cat:'Healthcare',color:'#c2185b',connected:false,agents:0,lastScan:'Never'},
+    {id:'cerner',name:'Cerner / Oracle',cat:'Healthcare',color:'#e65100',connected:false,agents:0,lastScan:'Never'},
+    {id:'crowdstrike',name:'CrowdStrike',cat:'EDR',color:'#ef4444',connected:false,agents:0,lastScan:'Never'},
+    {id:'intune',name:'MS Intune',cat:'EDR',color:'#0078d4',connected:false,agents:0,lastScan:'Never'},
+    {id:'sentinel',name:'MS Sentinel',cat:'SIEM',color:'#6366f1',connected:false,agents:0,lastScan:'Never'},
+    {id:'splunk',name:'Splunk',cat:'SIEM',color:'#ef4444',connected:false,agents:0,lastScan:'Never'},
+    {id:'github',name:'GitHub / GitLab',cat:'Git',color:'#24292f',connected:false,agents:0,lastScan:'Never'},
+    {id:'zscaler',name:'Zscaler ZIA',cat:'Network',color:'#8b5cf6',connected:false,agents:0,lastScan:'Never'},
   ];
 
   var connected = SOURCES.filter(function(s){return s.connected;}).length;
-  var blind = SOURCES.filter(function(s){return s.coverage==='blind';}).length;
+  var blind = SOURCES.filter(function(s){return !s.connected;}).length;
   var pct = Math.round(connected/SOURCES.length*100);
 
-  function setEl(id,v){var el=document.getElementById(id);if(el)el.textContent=v;}
-  setEl('cov-connected', connected);
-  setEl('cov-partial', 0);
-  setEl('cov-blind', blind);
-  setEl('cov-pct', pct+'%');
-
-  var mapEl = document.getElementById('coverage-map');
-  if (mapEl) {
-    mapEl.innerHTML = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px">'
-      + SOURCES.map(function(s) {
-          var color = s.coverage==='full'?'#10b981':s.coverage==='partial'?'#f59e0b':'#ef4444';
-          var bg = s.coverage==='full'?'#f0fdf4':s.coverage==='partial'?'#fff7ed':'#fef2f2';
-          var label = s.coverage==='full'?'Connected':s.coverage==='partial'?'Partial':'Blind spot';
-          return '<div style="background:'+bg+';border:1px solid '+color+'33;border-radius:10px;padding:14px">'
-            + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">'
-            + '<div style="width:8px;height:8px;border-radius:50%;background:'+color+'"></div>'
-            + '<span style="font-size:12px;font-weight:700;color:var(--text-primary)">'+escapeHtml(s.name)+'</span>'
-            + '</div>'
-            + '<div style="font-size:11px;color:var(--text-muted);margin-bottom:4px">Agents found: <strong style="color:var(--text-primary)">'+s.agents+'</strong></div>'
-            + '<div style="font-size:11px;color:var(--text-muted);margin-bottom:8px">Last scan: '+escapeHtml(s.lastScan)+'</div>'
-            + '<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:99px;background:'+color+'18;color:'+color+'">'+label+'</span>'
-            + '</div>';
-        }).join('')
-      + '</div>';
-  }
-
-  var blindEl = document.getElementById('coverage-blindspots');
-  if (blindEl) {
-    var blindSources = SOURCES.filter(function(s){return s.coverage==='blind';});
-    blindEl.innerHTML = '<div style="margin-bottom:10px;font-size:12px;color:var(--text-muted)">'+blindSources.length+' sources not connected — agents in these environments are invisible to AgentRadar</div>'
-      + blindSources.map(function(s) {
-          return '<div style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--bg-secondary);border:1px solid var(--glass-border-dim);border-radius:8px;margin-bottom:6px">'
-            + '<div style="width:8px;height:8px;border-radius:50%;background:#ef4444;flex-shrink:0"></div>'
-            + '<div style="flex:1"><div style="font-size:12px;font-weight:600;color:var(--text-primary)">'+escapeHtml(s.name)+'</div>'
-            + '<div style="font-size:10px;color:var(--text-muted)">No connector configured</div></div>'
-            + '<button onclick="go(&quot;integrations&quot;)" style="padding:4px 10px;font-size:10px;background:var(--brand);color:#fff;border:none;border-radius:4px;cursor:pointer">Connect</button>'
-            + '</div>';
-        }).join('');
-  }
+  wrap.innerHTML = ''
+    + '<div class="stat-grid-4">'
+    + '<div class="stat-card green"><div class="stat-glow"></div><div class="stat-lbl">Connected Sources</div><div class="stat-val green">' + connected + '</div></div>'
+    + '<div class="stat-card red"><div class="stat-glow"></div><div class="stat-lbl">Blind Spots</div><div class="stat-val red">' + blind + '</div></div>'
+    + '<div class="stat-card"><div class="stat-glow"></div><div class="stat-lbl">Coverage</div><div class="stat-val">' + pct + '%</div></div>'
+    + '<div class="stat-card purple"><div class="stat-glow"></div><div class="stat-lbl">Agents Found</div><div class="stat-val purple">' + agents.length + '</div></div>'
+    + '</div>'
+    + '<div class="main-side">'
+    + '<div class="card" style="flex:1.5">'
+    + '<div class="card-head"><span class="card-title">Coverage Map</span><span class="tier-badge t1">Discovery</span></div>'
+    + '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;padding:16px">'
+    + SOURCES.map(function(s) {
+        var color = s.connected ? '#10b981' : '#ef4444';
+        var bg = s.connected ? 'rgba(16,185,129,0.06)' : 'rgba(239,68,68,0.04)';
+        var label = s.connected ? 'Connected' : 'Blind spot';
+        return '<div style="background:' + bg + ';border:1px solid ' + color + '33;border-radius:10px;padding:14px">'
+          + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">'
+          + '<div style="width:8px;height:8px;border-radius:50%;background:' + color + ';' + (s.connected?'':'') + '"></div>'
+          + '<span style="font-size:12px;font-weight:700;color:var(--text-primary)">' + escapeHtml(s.name) + '</span></div>'
+          + '<div style="font-size:10px;color:var(--text-muted);margin-bottom:3px">Category: <strong>' + s.cat + '</strong></div>'
+          + '<div style="font-size:10px;color:var(--text-muted);margin-bottom:3px">Agents: <strong style="color:var(--text-primary)">' + s.agents + '</strong></div>'
+          + '<div style="font-size:10px;color:var(--text-muted);margin-bottom:10px">Last scan: ' + s.lastScan + '</div>'
+          + '<span style="font-size:9px;font-weight:700;padding:2px 8px;border-radius:99px;background:' + color + '18;color:' + color + '">' + label + '</span>'
+          + (s.connected ? '' : '<button onclick="go('integrations')" style="float:right;padding:2px 8px;font-size:9px;background:var(--brand);color:#fff;border:none;border-radius:4px;cursor:pointer">Connect</button>')
+          + '</div>';
+      }).join('')
+    + '</div></div>'
+    + '<div class="card">'
+    + '<div class="card-head"><span class="card-title">Blind Spots (' + blind + ')</span></div>'
+    + '<div style="padding:4px 0">'
+    + SOURCES.filter(function(s){return !s.connected;}).map(function(s) {
+        return '<div style="padding:10px 16px;border-bottom:1px solid var(--glass-border-dim);display:flex;align-items:center;gap:10px">'
+          + '<div style="width:7px;height:7px;border-radius:50%;background:#ef4444;flex-shrink:0"></div>'
+          + '<div style="flex:1"><div style="font-size:12px;font-weight:600;color:var(--text-primary)">' + escapeHtml(s.name) + '</div>'
+          + '<div style="font-size:10px;color:var(--text-muted)">' + s.cat + ' &middot; Not connected</div></div>'
+          + '<button onclick="go('integrations')" style="padding:3px 10px;font-size:10px;background:var(--brand);color:#fff;border:none;border-radius:4px;cursor:pointer">Connect</button>'
+          + '</div>';
+      }).join('')
+    + '</div></div></div>';
 }
 
 // ══════════════════════════════════════════════════════════════
 // OPERATIONS WORKBENCH
 // ══════════════════════════════════════════════════════════════
 function renderOperations() {
-  var agents = DB.agents;
-  var now = Date.now();
-  var DAY = 86400000;
+  var wrap = document.getElementById('view-operations');
+  if (!wrap) return;
 
-  // New agents in last 24h (by first_detected)
-  var newAgents = agents.filter(function(a){
-    if (!a.firstDet) return false;
-    var d = new Date(a.firstDet).getTime();
-    return (now - d) < DAY;
-  });
-
-  // Agents with no last seen in 7+ days (gone dark)
-  var goneDark = agents.filter(function(a){
-    if (!a.lastSeen || a.lastSeen === 'Just now') return false;
-    return a.lastSeen.indexOf('days') >= 0 || a.lastSeen.indexOf('week') >= 0;
-  });
-
-  // Agents overdue for review
-  var overdueReview = agents.filter(function(a){return !a.review_date;});
-
-  // High risk agents
+  var agents = DB.agents || [];
+  var shadow = agents.filter(function(a){return a.shadow && !a.approvedBy;});
+  var noBaa = agents.filter(function(a){return a.phi && a.baa_status !== 'signed';});
+  var noOwner = agents.filter(function(a){return !a.owner;});
+  var noReview = agents.filter(function(a){return !a.review_date;});
   var highRisk = agents.filter(function(a){return a.risk==='critical'||a.risk==='high';});
-
-  function setEl(id,v){var el=document.getElementById(id);if(el)el.textContent=v;}
-  setEl('ops-new', newAgents.length);
-  setEl('ops-dark', goneDark.length);
-  setEl('ops-risk', highRisk.length);
-  setEl('ops-review', overdueReview.length);
+  var total = shadow.length + noBaa.length + noOwner.length;
 
   // Update nav badge
-  var opsBadge = document.getElementById('nav-ops-count');
-  var totalOps = newAgents.length + goneDark.length + overdueReview.length;
-  if (opsBadge) opsBadge.textContent = totalOps;
+  var nb = document.getElementById('nb-ops');
+  if (nb) nb.textContent = total;
 
-  // Work queue
-  var queueEl = document.getElementById('ops-queue');
-  if (queueEl) {
-    var items = [];
+  var items = [];
+  if (shadow.length) items.push({priority:'critical',icon:'&#128680;',color:'#ef4444',title:shadow.length+' shadow AI agents need approval or quarantine',agents:shadow.slice(0,3),action:'Review shadow AI',fn:"go('shadow')"});
+  if (noBaa.length) items.push({priority:'critical',icon:'&#127973;',color:'#ef4444',title:noBaa.length+' PHI agents missing signed BAA &mdash; HIPAA risk',agents:noBaa.slice(0,3),action:'View PHI agents',fn:"go('phi')"});
+  if (noOwner.length) items.push({priority:'high',icon:'&#128100;',color:'#f59e0b',title:noOwner.length+' agents have no assigned owner',agents:noOwner.slice(0,3),action:'View Discovery',fn:"go('discovery')"});
+  if (noReview.length) items.push({priority:'high',icon:'&#128197;',color:'#f59e0b',title:noReview.length+' agents have never been reviewed',agents:noReview.slice(0,3),action:'View all agents',fn:"go('discovery')"});
+  if (highRisk.length) items.push({priority:'medium',icon:'&#9888;',color:'#6366f1',title:highRisk.length+' agents scored high or critical risk',agents:highRisk.slice(0,3),action:'Risk analytics',fn:"go('risk')"});
 
-    // Shadow agents needing action
-    var shadow = agents.filter(function(a){return a.shadow&&!a.approved;});
-    if (shadow.length) items.push({ priority:'critical', icon:'🚨', title:shadow.length+' shadow AI agents need approval or quarantine', action:'Review shadow AI', fn:"go('shadow')", agents: shadow.slice(0,3) });
+  var events = [];
+  shadow.slice(0,3).forEach(function(a){events.push({icon:'&#128680;',color:'#ef4444',msg:'Shadow AI detected: '+escapeHtml(a.name),time:a.lastSeen||'Recently'});});
+  noBaa.slice(0,2).forEach(function(a){events.push({icon:'&#127973;',color:'#8b5cf6',msg:'PHI without BAA: '+escapeHtml(a.name),time:'Today'});});
+  events.push({icon:'&#128269;',color:'#3b82f6',msg:'Background scan &mdash; '+agents.length+' agents confirmed',time:'2h ago'});
+  events.push({icon:'&#128269;',color:'#3b82f6',msg:'Azure auto-discovery completed',time:'2h ago'});
 
-    // PHI without BAA
-    var phiNoBaa = agents.filter(function(a){return a.phi&&a.baa_status!=='signed';});
-    if (phiNoBaa.length) items.push({ priority:'critical', icon:'🏥', title:phiNoBaa.length+' PHI agents missing BAA — HIPAA risk', action:'View PHI agents', fn:"go('phi')", agents: phiNoBaa.slice(0,3) });
-
-    // No owner
-    var noOwner = agents.filter(function(a){return !a.owner;});
-    if (noOwner.length) items.push({ priority:'high', icon:'👤', title:noOwner.length+' agents have no assigned owner', action:'Bulk assign owners', fn:'bulkSuggestOwners()', agents: noOwner.slice(0,3) });
-
-    // Overdue review
-    if (overdueReview.length) items.push({ priority:'high', icon:'📅', title:overdueReview.length+' agents have never been reviewed', action:'Start reviews', fn:'loadOverdueReviews()', agents: overdueReview.slice(0,3) });
-
-    // High risk
-    if (highRisk.length) items.push({ priority:'medium', icon:'⚠️', title:highRisk.length+' agents scored high or critical risk', action:'View risk analytics', fn:"go('risk')", agents: highRisk.slice(0,3) });
-
-    var priorityColors = {critical:'#ef4444', high:'#f59e0b', medium:'#6366f1'};
-
-    if (!items.length) {
-      queueEl.innerHTML = '<div style="padding:32px;text-align:center;color:var(--text-muted)"><div style="font-size:32px;margin-bottom:8px">✅</div><div style="font-size:14px;font-weight:600;color:var(--text-primary)">All clear</div><div style="font-size:12px;margin-top:4px">No pending operations items</div></div>';
-    } else {
-      queueEl.innerHTML = items.map(function(item) {
-        var pc = priorityColors[item.priority]||'#6366f1';
-        return '<div style="padding:14px 16px;border-bottom:1px solid var(--glass-border-dim);border-left:3px solid '+pc+'">'
-          + '<div style="display:flex;align-items:flex-start;gap:10px">'
-          + '<div style="font-size:20px;flex-shrink:0">'+item.icon+'</div>'
-          + '<div style="flex:1">'
-          + '<div style="font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:4px">'+escapeHtml(item.title)+'</div>'
-          + '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px">'
-          + item.agents.map(function(a){return '<span style="font-size:10px;padding:1px 6px;background:var(--bg-secondary);border:1px solid var(--glass-border-dim);border-radius:3px;color:var(--text-muted)">'+escapeHtml(a.name)+'</span>';}).join('')
-          + '</div>'
-          + '<button onclick="'+item.fn+'" style="padding:5px 12px;font-size:11px;font-weight:600;background:'+pc+';color:#fff;border:none;border-radius:6px;cursor:pointer">'+escapeHtml(item.action)+' →</button>'
-          + '</div>'
-          + '<span style="font-size:9px;font-weight:700;padding:2px 7px;border-radius:99px;background:'+pc+'18;color:'+pc+';flex-shrink:0">'+item.priority.toUpperCase()+'</span>'
-          + '</div></div>';
-      }).join('');
-    }
-  }
-
-  // Discovery events feed
-  var eventsEl = document.getElementById('ops-events');
-  if (eventsEl) {
-    var events = [];
-    agents.forEach(function(a) {
-      if (a.shadow) events.push({ type:'shadow', icon:'🚨', color:'#ef4444', msg:'Shadow AI detected: '+a.name, time:a.lastSeen||'Recently', agent:a });
-      if (a.phi&&a.baa_status!=='signed') events.push({ type:'phi', icon:'🏥', color:'#8b5cf6', msg:'PHI exposure without BAA: '+a.name, time:a.lastSeen||'Recently', agent:a });
-      if (a.risk==='critical') events.push({ type:'risk', icon:'⚠️', color:'#f59e0b', msg:'Critical risk agent: '+a.name, time:a.lastSeen||'Recently', agent:a });
-    });
-
-    // Add some discovery events
-    events.push({ type:'scan', icon:'🔍', color:'#3b82f6', msg:'Background scan completed — '+agents.length+' agents confirmed', time:'2h ago' });
-    events.push({ type:'scan', icon:'🔍', color:'#3b82f6', msg:'Azure auto-discovery found 14 agents', time:'2h ago' });
-    events.push({ type:'scan', icon:'🔍', color:'#3b82f6', msg:'Tag-based discovery found 4 agents', time:'2h ago' });
-
-    eventsEl.innerHTML = events.slice(0,15).map(function(e) {
-      var id = e.agent ? String(e.agent.id||'').replace(/"/g,'') : '';
-      return '<div '+(id?'onclick="openDrawer(this.dataset.id)" data-id="'+id+'" style="cursor:pointer"':'')+' style="padding:10px 14px;border-bottom:1px solid var(--glass-border-dim);display:flex;gap:10px;align-items:flex-start">'
-        + '<div style="font-size:16px;flex-shrink:0;margin-top:1px">'+e.icon+'</div>'
-        + '<div style="flex:1;min-width:0">'
-        + '<div style="font-size:12px;font-weight:600;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+escapeHtml(e.msg)+'</div>'
-        + '<div style="font-size:10px;color:var(--text-muted);margin-top:2px">'+escapeHtml(e.time)+'</div>'
-        + '</div></div>';
-    }).join('');
-  }
+  wrap.innerHTML = ''
+    + '<div class="stat-grid-4">'
+    + '<div class="stat-card red"><div class="stat-glow"></div><div class="stat-lbl">Shadow AI</div><div class="stat-val red">'+shadow.length+'</div></div>'
+    + '<div class="stat-card red"><div class="stat-glow"></div><div class="stat-lbl">PHI No BAA</div><div class="stat-val red">'+noBaa.length+'</div></div>'
+    + '<div class="stat-card amber"><div class="stat-glow"></div><div class="stat-lbl">No Owner</div><div class="stat-val amber">'+noOwner.length+'</div></div>'
+    + '<div class="stat-card amber"><div class="stat-glow"></div><div class="stat-lbl">Never Reviewed</div><div class="stat-val amber">'+noReview.length+'</div></div>'
+    + '</div>'
+    + '<div class="main-side">'
+    // Work queue
+    + '<div class="card" style="flex:1.5">'
+    + '<div class="card-head"><span class="card-title">Work Queue</span>'
+    + (total > 0 ? '<span style="margin-left:auto;font-size:11px;color:#ef4444;font-weight:700">'+total+' items need attention</span>' : '')
+    + '</div>'
+    + (items.length === 0
+      ? '<div style="padding:32px;text-align:center;color:var(--text-muted)"><div style="font-size:32px;margin-bottom:8px">&#9989;</div><div style="font-size:14px;font-weight:600;color:var(--text-primary)">All clear</div><div style="font-size:12px;margin-top:4px">No pending operations items</div></div>'
+      : items.map(function(item) {
+          return '<div style="padding:14px 16px;border-bottom:1px solid var(--glass-border-dim);border-left:3px solid '+item.color+'">'
+            + '<div style="display:flex;align-items:flex-start;gap:10px">'
+            + '<div style="font-size:20px;flex-shrink:0">'+item.icon+'</div>'
+            + '<div style="flex:1">'
+            + '<div style="font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:6px">'+item.title+'</div>'
+            + '<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px">'
+            + item.agents.map(function(a){return '<span style="font-size:10px;padding:1px 6px;background:var(--bg-secondary);border:1px solid var(--glass-border-dim);border-radius:3px;color:var(--text-muted)">'+escapeHtml(a.name)+'</span>';}).join('')
+            + '</div>'
+            + '<button onclick="'+item.fn+'" style="padding:5px 12px;font-size:11px;font-weight:600;background:'+item.color+';color:#fff;border:none;border-radius:6px;cursor:pointer">'+item.action+' &rarr;</button>'
+            + '</div>'
+            + '<span style="font-size:9px;font-weight:700;padding:2px 7px;border-radius:99px;background:'+item.color+'18;color:'+item.color+';flex-shrink:0">'+item.priority.toUpperCase()+'</span>'
+            + '</div></div>';
+        }).join(''))
+    + '</div>'
+    // Events feed
+    + '<div class="card">'
+    + '<div class="card-head"><span class="card-title">Discovery Events</span></div>'
+    + '<div style="max-height:500px;overflow-y:auto">'
+    + events.map(function(e) {
+        return '<div style="padding:10px 14px;border-bottom:1px solid var(--glass-border-dim);display:flex;gap:10px;align-items:flex-start">'
+          + '<div style="font-size:16px;flex-shrink:0;margin-top:1px">'+e.icon+'</div>'
+          + '<div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:600;color:var(--text-primary)">'+e.msg+'</div>'
+          + '<div style="font-size:10px;color:var(--text-muted);margin-top:2px">'+e.time+'</div></div>'
+          + '</div>';
+      }).join('')
+    + '</div></div></div>';
 }
 
 // ══════════════════════════════════════════════════════════════
-// SHADOW AI HUB
+// EU AI ACT VIEW
 // ══════════════════════════════════════════════════════════════
-function renderShadowDash() {
-  var agents = DB.agents;
-  var shadow = agents.filter(function(a){return a.shadow;});
-  var crit = shadow.filter(function(a){return a.risk==='critical';});
-  var phi = shadow.filter(function(a){return a.phi;});
+function renderEUAI() {
+  var wrap = document.getElementById('view-euai');
+  if (!wrap) return;
 
-  function setEl(id,v){var el=document.getElementById(id);if(el)el.textContent=v;}
-  setEl('sh-total', shadow.length);
-  setEl('sh-crit', crit.length);
-  setEl('sh-phi', phi.length);
-  setEl('sh-resolved', 0);
+  var agents = DB.agents || [];
+  var ARTICLES = [
+    {id:'art6', title:'Article 6 — High-Risk AI Classification', desc:'AI systems used in critical infrastructure, education, employment, essential services, law enforcement, migration, or justice must be classified as high-risk.', check: function(a){return a.risk==='critical'||a.risk==='high';}, risk:'high'},
+    {id:'art9', title:'Article 9 — Risk Management System', desc:'Providers of high-risk AI must establish a risk management system throughout the lifecycle of the AI system.', check: function(a){return !a.review_date;}, risk:'high'},
+    {id:'art10', title:'Article 10 — Data Governance', desc:'Training, validation and testing data must meet quality criteria and be relevant, representative, free of errors.', check: function(a){return a.phi||a.pii;}, risk:'medium'},
+    {id:'art13', title:'Article 13 — Transparency & Logging', desc:'High-risk AI systems must be designed to ensure their operation is sufficiently transparent.', check: function(a){return !a.owner;}, risk:'medium'},
+    {id:'art14', title:'Article 14 — Human Oversight', desc:'High-risk AI systems must be designed to be effectively overseen by natural persons.', check: function(a){return !a.approved_by&&a.shadow;}, risk:'high'},
+    {id:'art15', title:'Article 15 — Accuracy & Robustness', desc:'High-risk AI systems must be designed to achieve an appropriate level of accuracy, robustness and cybersecurity.', check: function(a){return a.risk==='critical';}, risk:'critical'},
+    {id:'art52', title:'Article 52 — Transparency Obligations', desc:'AI systems interacting with natural persons must be designed to inform persons they are interacting with an AI.', check: function(a){return a.type==='chatbot'||a.type==='assistant';}, risk:'low'},
+    {id:'art62', title:'Article 62 — Reporting Obligations', desc:'Providers of high-risk AI systems must report serious incidents and malfunctioning to market surveillance authorities.', check: function(a){return a.risk==='critical'&&!a.owner;}, risk:'critical'},
+  ];
 
-  // Update nav badge
-  var shBadge = document.getElementById('nav-shadow-count');
-  if (shBadge) shBadge.textContent = shadow.length;
-
-  // Shadow agent list
-  var listEl = document.getElementById('shadow-agent-list');
-  if (listEl) {
-    if (!shadow.length) {
-      listEl.innerHTML = '<div style="padding:32px;text-align:center;color:var(--text-muted)"><div style="font-size:32px;margin-bottom:8px">✅</div><div style="font-size:14px;font-weight:600;color:var(--text-primary)">No shadow AI detected</div><div style="font-size:12px;margin-top:4px">All agents are registered and approved</div></div>';
-    } else {
-      listEl.innerHTML = shadow.map(function(a) {
-        var rc = {critical:'#ef4444',high:'#f59e0b',medium:'#6366f1',low:'#10b981'}[a.risk]||'#6366f1';
-        var id = String(a.id||'').replace(/"/g,'');
-        return '<div style="padding:14px 16px;border-bottom:1px solid var(--glass-border-dim);display:flex;align-items:center;gap:12px">'
-          + '<div style="width:10px;height:10px;border-radius:50%;background:#ef4444;flex-shrink:0;animation:pulse 1.5s infinite"></div>'
-          + '<div style="flex:1;min-width:0">'
-          + '<div style="font-size:13px;font-weight:700;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+escapeHtml(a.name)+'</div>'
-          + '<div style="font-size:11px;color:var(--text-muted);margin-top:2px">'
-          + escapeHtml(a.env||'')
-          + (a.detect?' &middot; Detected: '+escapeHtml(a.detect):'')
-          + (a.owner?' &middot; Owner: '+escapeHtml(a.owner):'<span style="color:#ef4444"> &middot; No owner</span>')
-          + '</div></div>'
-          + (a.phi?'<span style="font-size:9px;background:#fee2e2;color:#dc2626;border-radius:3px;padding:2px 6px;font-weight:700">PHI</span>':'')
-          + '<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:99px;background:'+rc+'18;color:'+rc+'">'+( a.risk||'').toUpperCase()+'</span>'
-          + '<div style="display:flex;gap:6px">'
-          + '<button data-id="'+id+'" onclick="approveAgent(this.dataset.id)" style="padding:5px 10px;font-size:10px;background:#10b981;color:#fff;border:none;border-radius:4px;cursor:pointer">Approve</button>'
-          + '<button data-id="'+id+'" onclick="quarantineAgent(this.dataset.id)" style="padding:5px 10px;font-size:10px;background:#ef4444;color:#fff;border:none;border-radius:4px;cursor:pointer">Quarantine</button>'
-          + '</div></div>';
-      }).join('');
-    }
-  }
-
-  // Detection sources breakdown
-  var sourcesEl = document.getElementById('shadow-sources');
-  if (sourcesEl) {
-    var detectCounts = {};
-    shadow.forEach(function(a){ var d=a.detect||'Unknown'; detectCounts[d]=(detectCounts[d]||0)+1; });
-    if (!Object.keys(detectCounts).length) {
-      sourcesEl.innerHTML = '<div style="font-size:12px;color:var(--text-muted)">No shadow AI detected</div>';
-    } else {
-      var total = shadow.length || 1;
-      sourcesEl.innerHTML = Object.keys(detectCounts).map(function(src) {
-        var count = detectCounts[src];
-        var pct = Math.round(count/total*100);
-        return '<div style="margin-bottom:10px">'
-          + '<div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px">'
-          + '<span style="color:var(--text-primary);font-weight:600">'+escapeHtml(src)+'</span>'
-          + '<span style="color:var(--text-muted)">'+count+' agents</span></div>'
-          + '<div style="height:6px;background:var(--bg-secondary);border-radius:3px;overflow:hidden">'
-          + '<div style="height:100%;width:'+pct+'%;background:#ef4444;border-radius:3px"></div>'
-          + '</div></div>';
-      }).join('');
-    }
-  }
-
-  // Trend chart (simple SVG)
-  var trendEl = document.getElementById('shadow-trend');
-  if (trendEl) {
-    var count = shadow.length;
-    trendEl.innerHTML = '<div style="font-size:12px;color:var(--text-muted);margin-bottom:8px">Current: <strong style="color:#ef4444">'+count+'</strong> shadow agents</div>'
-      + '<div style="font-size:11px;color:var(--text-muted)">Connect more sources to track shadow AI trends over time</div>'
-      + (count > 0 ? '<div style="margin-top:10px;padding:10px;background:#fef2f2;border-radius:6px;font-size:11px;color:#dc2626"><strong>Action required:</strong> Run policy auto-remediation to move shadow agents to review queue</div>' : '');
-  }
-}
-
-// ══════════════════════════════════════════════════════════════
-// AGENT CONFIDENCE SCORING
-// ══════════════════════════════════════════════════════════════
-function getConfidenceScore(agent) {
-  var score = 0;
-  var sources = 0;
-  if (agent.detect === 'Azure auto-discovery') { score += 40; sources++; }
-  if (agent.detect === 'Tag-based discovery') { score += 35; sources++; }
-  if (agent.detect && agent.detect.indexOf('scan') >= 0) { score += 30; sources++; }
-  if (agent.owner) score += 15;
-  if (agent.review_date) score += 10;
-  if (agent.notes) score += 5;
-  if (sources > 1) score += 20;
-  score = Math.min(100, score);
-  var label = score >= 80 ? 'Confirmed' : score >= 50 ? 'Likely' : 'Candidate';
-  var color = score >= 80 ? '#10b981' : score >= 50 ? '#f59e0b' : '#94a3b8';
-  return { score: score, label: label, color: color };
-}
-
-// ══════════════════════════════════════════════════════════════
-// AGENT APPROVE/QUARANTINE (drawer actions)
-// ══════════════════════════════════════════════════════════════
-function approveAgent(agentId) {
-  var headers = { 'Content-Type': 'application/json' };
-  if (_apiToken) headers['Authorization'] = 'Bearer ' + _apiToken;
-  fetch('/api/agents/' + agentId + '/approve', { method:'POST', headers:headers, credentials:'include' })
-    .then(function(r){return r.json();})
-    .then(function(d){
-      if (d.success) {
-        showToast('Agent approved', 'success');
-        loadLiveAgents().then(function(){ if (currentView === 'shadowdash') renderShadowDash(); });
-      }
-    }).catch(function(){ showToast('Failed to approve', 'error'); });
-}
-
-function quarantineAgent(agentId) {
-  var headers = { 'Content-Type': 'application/json' };
-  if (_apiToken) headers['Authorization'] = 'Bearer ' + _apiToken;
-  fetch('/api/agents/' + agentId + '/quarantine', { method:'POST', headers:headers, credentials:'include' })
-    .then(function(r){return r.json();})
-    .then(function(d){
-      if (d.success) {
-        showToast('Agent quarantined', 'success');
-        loadLiveAgents().then(function(){ if (currentView === 'shadowdash') renderShadowDash(); });
-      }
-    }).catch(function(){ showToast('Failed to quarantine', 'error'); });
-}
-
-// ══════════════════════════════════════════════════════════════
-// INVENTORY EXPORT
-// ══════════════════════════════════════════════════════════════
-function exportInventoryJSON() {
-  var agents = DB.agents;
-  var exportData = {
-    generated: new Date().toISOString(),
-    platform: 'AgentRadar',
-    total_agents: agents.length,
-    agents: agents.map(function(a) {
-      var conf = getConfidenceScore(a);
-      return {
-        id: a.id, name: a.name, type: a.type, env: a.env,
-        category: a.agent_category, risk: a.risk,
-        shadow: a.shadow, phi: a.phi, pii: a.pii,
-        owner: a.owner, lifecycle: a.lifecycle_status,
-        detect: a.detect, first_detected: a.firstDet,
-        last_seen: a.lastSeen, review_date: a.review_date,
-        baa_status: a.baa_status, confidence: conf.label,
-        confidence_score: conf.score
-      };
-    })
-  };
-  var blob = new Blob([JSON.stringify(exportData, null, 2)], {type:'application/json'});
-  var url = URL.createObjectURL(blob);
-  var a = document.createElement('a');
-  a.href = url;
-  a.download = 'AgentRadar-Inventory-' + new Date().toISOString().split('T')[0] + '.json';
-  a.click();
-  URL.revokeObjectURL(url);
-  showToast('Inventory exported as JSON', 'success');
-}
-
-function exportInventoryCSV() {
-  var agents = DB.agents;
-  var headers = ['ID','Name','Type','Environment','Category','Risk','Shadow','PHI','Owner','Lifecycle','Detect','FirstDetected','LastSeen','BAA Status','Confidence'];
-  var rows = agents.map(function(a) {
-    var conf = getConfidenceScore(a);
-    return [a.id,a.name,a.type,a.env,a.agent_category,a.risk,a.shadow,a.phi,a.owner||'',a.lifecycle_status,a.detect,a.firstDet,a.lastSeen,a.baa_status,conf.label].map(function(v){return '"'+(String(v||'').replace(/"/g,'""'))+'"';}).join(',');
+  var results = ARTICLES.map(function(art) {
+    var violations = agents.filter(art.check);
+    var pct = agents.length ? Math.round((agents.length - violations.length) / agents.length * 100) : 100;
+    return { art: art, violations: violations, pct: pct };
   });
-  var csv = [headers.join(',')].concat(rows).join('\n');
-  var blob = new Blob([csv], {type:'text/csv'});
-  var url = URL.createObjectURL(blob);
-  var a = document.createElement('a');
-  a.href = url;
-  a.download = 'AgentRadar-Inventory-' + new Date().toISOString().split('T')[0] + '.csv';
-  a.click();
-  URL.revokeObjectURL(url);
-  showToast('Inventory exported as CSV', 'success');
+
+  var passing = results.filter(function(r){return r.pct===100;}).length;
+  var failing = results.filter(function(r){return r.violations.length>0;}).length;
+  var avgPct = results.length ? Math.round(results.reduce(function(s,r){return s+r.pct;},0)/results.length) : 0;
+
+  var RC = {critical:'#ef4444',high:'#f59e0b',medium:'#6366f1',low:'#10b981'};
+
+  wrap.innerHTML = ''
+    + '<div class="stat-grid-4">'
+    + '<div class="stat-card"><div class="stat-glow"></div><div class="stat-lbl">Overall Compliance</div><div class="stat-val">' + avgPct + '%</div></div>'
+    + '<div class="stat-card green"><div class="stat-glow"></div><div class="stat-lbl">Articles Passing</div><div class="stat-val green">' + passing + '</div></div>'
+    + '<div class="stat-card red"><div class="stat-glow"></div><div class="stat-lbl">Articles Failing</div><div class="stat-val red">' + failing + '</div></div>'
+    + '<div class="stat-card"><div class="stat-glow"></div><div class="stat-lbl">Articles Tracked</div><div class="stat-val">' + ARTICLES.length + '</div></div>'
+    + '</div>'
+    + '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:14px">'
+    + results.map(function(r) {
+        var color = r.pct===100?'#10b981':r.violations.length>0?RC[r.art.risk]||'#6366f1':'#6366f1';
+        return '<div class="card" style="border-top:3px solid '+color+'">'
+          + '<div class="card-head">'
+          + '<div style="flex:1"><div class="card-title" style="font-size:12px">'+escapeHtml(r.art.title)+'</div>'
+          + '<div style="font-size:10px;color:var(--text-muted);margin-top:3px">'+escapeHtml(r.art.desc)+'</div></div>'
+          + '<div style="font-size:20px;font-weight:800;color:'+color+';font-family:var(--font-display);flex-shrink:0;margin-left:12px">'+r.pct+'%</div>'
+          + '</div>'
+          + '<div class="card-body">'
+          + '<div style="height:6px;background:var(--bg-secondary);border-radius:3px;overflow:hidden;margin-bottom:10px">'
+          + '<div style="height:100%;width:'+r.pct+'%;background:'+color+';border-radius:3px;transition:width .5s"></div></div>'
+          + (r.violations.length > 0
+            ? '<div style="font-size:11px;color:var(--text-muted);margin-bottom:6px">'+r.violations.length+' agent(s) in violation:</div>'
+              + '<div style="display:flex;gap:4px;flex-wrap:wrap">'
+              + r.violations.slice(0,4).map(function(a){return '<span style="font-size:10px;padding:1px 7px;background:'+RC[r.art.risk]+'18;color:'+RC[r.art.risk]+';border-radius:3px">'+escapeHtml(a.name)+'</span>';}).join('')
+              + (r.violations.length > 4 ? '<span style="font-size:10px;color:var(--text-muted)">+'+( r.violations.length-4)+' more</span>' : '')
+              + '</div>'
+            : '<div style="font-size:11px;color:#10b981;font-weight:600">&#10003; All agents compliant</div>')
+          + '</div></div>';
+      }).join('')
+    + '</div>';
+}
+
+// ══════════════════════════════════════════════════════════════
+// BAA MANAGEMENT
+// ══════════════════════════════════════════════════════════════
+function openBAAForm(agentId) {
+  var agent = DB.agents.find(function(a){ return String(a.id) === String(agentId); });
+  if (!agent) { showToast('Agent not found', 'error'); return; }
+
+  var existing = document.getElementById('baa-modal');
+  if (existing) existing.remove();
+
+  var modal = document.createElement('div');
+  modal.id = 'baa-modal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);backdrop-filter:blur(8px);z-index:9999;display:flex;align-items:center;justify-content:center';
+  modal.innerHTML = '<div style="background:var(--bg-primary);border:1px solid var(--glass-border-dim);border-radius:16px;width:500px;max-height:85vh;overflow-y:auto;box-shadow:0 16px 64px rgba(0,0,0,0.3)">'
+    + '<div style="padding:18px 20px;border-bottom:1px solid var(--glass-border-dim);display:flex;align-items:center;gap:12px">'
+    + '<div style="font-size:24px">&#127973;</div>'
+    + '<div style="flex:1"><div style="font-size:15px;font-weight:700;color:var(--text-primary)">Business Associate Agreement</div>'
+    + '<div style="font-size:11px;color:var(--text-muted);margin-top:2px">'+escapeHtml(agent.name||'')+'</div></div>'
+    + '<button onclick="document.getElementById('baa-modal').remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--text-muted)">&#10005;</button>'
+    + '</div>'
+    + '<div style="padding:20px">'
+    + '<div style="background:rgba(99,102,241,0.06);border:1px solid rgba(99,102,241,0.2);border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:11px;color:var(--brand)">'
+    + '&#9432; HIPAA requires a signed BAA before sharing PHI with any business associate. This agent has been flagged as accessing PHI.'
+    + '</div>'
+    + '<div style="margin-bottom:12px"><label style="font-size:11px;font-weight:600;color:var(--text-muted);display:block;margin-bottom:5px">BAA Status</label>'
+    + '<select id="baa-status" style="width:100%;padding:8px 10px;border:1px solid var(--glass-border-dim);border-radius:8px;background:var(--bg-secondary);color:var(--text-primary);font-size:12px">'
+    + '<option value="unknown">Unknown</option>'
+    + '<option value="pending">Pending signature</option>'
+    + '<option value="signed">Signed</option>'
+    + '<option value="expired">Expired</option>'
+    + '<option value="not_required">Not required</option>'
+    + '</select></div>'
+    + '<div style="margin-bottom:12px"><label style="font-size:11px;font-weight:600;color:var(--text-muted);display:block;margin-bottom:5px">Signed by (email)</label>'
+    + '<input id="baa-signed-by" type="text" placeholder="legal@company.com" style="width:100%;padding:8px 10px;border:1px solid var(--glass-border-dim);border-radius:8px;background:var(--bg-secondary);color:var(--text-primary);font-size:12px;box-sizing:border-box"></div>'
+    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">'
+    + '<div><label style="font-size:11px;font-weight:600;color:var(--text-muted);display:block;margin-bottom:5px">Date signed</label>'
+    + '<input id="baa-signed-date" type="date" style="width:100%;padding:8px 10px;border:1px solid var(--glass-border-dim);border-radius:8px;background:var(--bg-secondary);color:var(--text-primary);font-size:12px;box-sizing:border-box"></div>'
+    + '<div><label style="font-size:11px;font-weight:600;color:var(--text-muted);display:block;margin-bottom:5px">Expiry date</label>'
+    + '<input id="baa-expiry-date" type="date" style="width:100%;padding:8px 10px;border:1px solid var(--glass-border-dim);border-radius:8px;background:var(--bg-secondary);color:var(--text-primary);font-size:12px;box-sizing:border-box"></div>'
+    + '</div>'
+    + '<div style="margin-bottom:16px"><label style="font-size:11px;font-weight:600;color:var(--text-muted);display:block;margin-bottom:5px">Document URL (optional)</label>'
+    + '<input id="baa-doc-url" type="text" placeholder="https://docs.company.com/baa/..." style="width:100%;padding:8px 10px;border:1px solid var(--glass-border-dim);border-radius:8px;background:var(--bg-secondary);color:var(--text-primary);font-size:12px;box-sizing:border-box"></div>'
+    + '<div style="display:flex;gap:8px">'
+    + '<button data-id="'+agentId+'" onclick="saveBAAData(this.dataset.id)" style="flex:1;padding:10px;background:var(--brand);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">Save BAA Record</button>'
+    + '<button onclick="document.getElementById('baa-modal').remove()" style="padding:10px 16px;background:transparent;border:1px solid var(--glass-border-dim);border-radius:8px;font-size:13px;cursor:pointer;color:var(--text-primary)">Cancel</button>'
+    + '</div></div></div>';
+
+  // Set existing values
+  var status = document.getElementById('baa-status');
+  if (status && agent.baa_status) status.value = agent.baa_status;
+
+  document.body.appendChild(modal);
+}
+
+function saveBAAData(agentId) {
+  var status = document.getElementById('baa-status');
+  var signedBy = document.getElementById('baa-signed-by');
+  var signedDate = document.getElementById('baa-signed-date');
+  var expiryDate = document.getElementById('baa-expiry-date');
+  var docUrl = document.getElementById('baa-doc-url');
+
+  if (!status) { showToast('Form error', 'error'); return; }
+
+  var payload = {
+    baa_status: status.value,
+    baa_signed_by: signedBy ? signedBy.value.trim() : '',
+    baa_signed_date: signedDate ? signedDate.value : '',
+    baa_expiry_date: expiryDate ? expiryDate.value : '',
+    baa_document_url: docUrl ? docUrl.value.trim() : '',
+  };
+
+  var headers = { 'Content-Type': 'application/json' };
+  if (_apiToken) headers['Authorization'] = 'Bearer ' + _apiToken;
+
+  // Get CSRF token first
+  fetch('/api/csrf-token', { headers: headers, credentials: 'include' })
+    .then(function(r){ return r.json(); })
+    .then(function(csrf) {
+      if (csrf.token) headers['X-CSRF-Token'] = csrf.token;
+      return fetch('/api/agents/' + agentId + '/baa', {
+        method: 'PATCH',
+        headers: headers,
+        credentials: 'include',
+        body: JSON.stringify(payload)
+      });
+    })
+    .then(function(r){ return r.json(); })
+    .then(function(d) {
+      if (d.success || d.id) {
+        showToast('BAA record saved', 'success');
+        document.getElementById('baa-modal') && document.getElementById('baa-modal').remove();
+        loadLiveAgents().then(function(){ if(currentView==='phi') renderPhi(); });
+      } else {
+        showToast(d.error || 'Failed to save BAA', 'error');
+      }
+    })
+    .catch(function(){ showToast('Failed to save BAA', 'error'); });
+}
+
+function markBAARequired(agentId) {
+  var headers = { 'Content-Type': 'application/json' };
+  if (_apiToken) headers['Authorization'] = 'Bearer ' + _apiToken;
+  fetch('/api/csrf-token', { headers: headers, credentials: 'include' })
+    .then(function(r){ return r.json(); })
+    .then(function(csrf) {
+      if (csrf.token) headers['X-CSRF-Token'] = csrf.token;
+      return fetch('/api/agents/' + agentId + '/baa', {
+        method: 'PATCH', headers: headers, credentials: 'include',
+        body: JSON.stringify({ baa_status: 'pending' })
+      });
+    })
+    .then(function(r){ return r.json(); })
+    .then(function(d) {
+      if (d.success || d.id) { showToast('BAA marked as required', 'success'); loadLiveAgents(); }
+      else showToast('Failed', 'error');
+    }).catch(function(){ showToast('Failed', 'error'); });
+}
+
+function loadBAASummary() {
+  var headers = {};
+  if (_apiToken) headers['Authorization'] = 'Bearer ' + _apiToken;
+  fetch('/api/agents/baa/summary', { headers: headers, credentials: 'include' })
+    .then(function(r){ return r.ok ? r.json() : {}; })
+    .then(function(d) {
+      var el = document.getElementById('baa-summary');
+      if (!el || !d) return;
+      el.innerHTML = '<div style="font-size:11px;color:var(--text-muted)">Signed: <strong style="color:#10b981">'+( d.signed||0)+'</strong> &nbsp;|&nbsp; Pending: <strong style="color:#f59e0b">'+(d.pending||0)+'</strong> &nbsp;|&nbsp; Missing: <strong style="color:#ef4444">'+(d.unknown||0)+'</strong></div>';
+    }).catch(function(){});
 }

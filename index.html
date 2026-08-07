@@ -2635,18 +2635,6 @@ input[type=checkbox]{accent-color:var(--brand)}
       <svg class="nav-icon" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M7 1L3 4v3c0 2.5 1.7 4 4 4.5 2.3-.5 4-2 4-4.5V4L7 1z"/><path d="M5 7h4M7 5v4"/></svg>
       PHI Exposure <span class="nav-badge nb-red" id="nb-phi">0</span>
     </div>
-    <div class="nav-item" id="nav-shadowdash" onclick="go('shadowdash')">
-      <svg class="nav-icon" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="7" cy="7" r="5.5"/><path d="M4.5 9.5L7 4l2.5 5.5"/><line x1="5.5" y1="7.5" x2="8.5" y2="7.5"/></svg>
-      Shadow AI Hub <span class="nav-badge nb-red" id="nav-shadow-count">0</span>
-    </div>
-    <div class="nav-item" id="nav-coverage" onclick="go('coverage')">
-      <svg class="nav-icon" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="1" width="12" height="12" rx="2"/><path d="M4 7l2 2 4-4"/></svg>
-      Coverage Map
-    </div>
-    <div class="nav-item" id="nav-operations" onclick="go('operations')">
-      <svg class="nav-icon" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="3" width="5" height="8" rx="1"/><rect x="8" y="3" width="5" height="4" rx="1"/><rect x="8" y="9" width="5" height="2" rx="1"/></svg>
-      Operations <span class="nav-badge nb-amber" id="nav-ops-count">0</span>
-    </div>
     <div class="nav-item" id="nav-models" onclick="go('models')">
       <svg class="nav-icon" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="3" width="12" height="8" rx="1.5"/><line x1="4" y1="6" x2="4" y2="8"/><line x1="7" y1="5" x2="7" y2="9"/><line x1="10" y1="6.5" x2="10" y2="8"/></svg>
       Model Registry <span class="nav-badge nb-gray" id="nb-models">0</span>
@@ -2699,6 +2687,18 @@ input[type=checkbox]{accent-color:var(--brand)}
     <div class="nav-item" id="nav-ciso" onclick="go('ciso')">
       <svg class="nav-icon" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M7 1.5L3 4v3c0 2.5 1.8 4 4 4.5 2.2-.5 4-2 4-4.5V4L7 1.5z"/></svg>
       CISO Report
+    </div>
+    <div class="nav-item" id="nav-coverage" onclick="go('coverage')">
+      <svg class="nav-icon" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="1" width="12" height="12" rx="2"/><path d="M4 7l2 2 4-4"/></svg>
+      Coverage Map
+    </div>
+    <div class="nav-item" id="nav-operations" onclick="go('operations')">
+      <svg class="nav-icon" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="3" width="5" height="8" rx="1"/><rect x="8" y="3" width="5" height="4" rx="1"/><rect x="8" y="9" width="5" height="2" rx="1"/></svg>
+      Operations <span class="nav-badge nb-amber" id="nb-ops">0</span>
+    </div>
+    <div class="nav-item" id="nav-euai" onclick="go('euai')">
+      <svg class="nav-icon" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="7" cy="7" r="5.5"/><path d="M4.5 7h5M7 4.5v5"/></svg>
+      EU AI Act
     </div>
     <div class="nav-item" id="nav-benchmark" onclick="go('benchmark')">
       <svg class="nav-icon" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="7" width="3" height="6"/><rect x="5.5" y="4" width="3" height="9"/><rect x="10" y="1" width="3" height="12"/></svg>
@@ -4053,7 +4053,7 @@ input[type=checkbox]{accent-color:var(--brand)}
   </div>
 </div>
 
-<script src="/app.js?v=1786081804"></script>
+<script src="/app.js?v=1786126467"></script>
 
 <script>
 // Force hide all views except active on load
@@ -4062,66 +4062,13 @@ document.querySelectorAll('.view').forEach(function(v){
 </script>
 <script>document.querySelectorAll(".view").forEach(function(v){if(v.classList.contains("active")){v.style.display="flex";}else{v.style.display="none";}});</script>
     <!-- ══ COVERAGE MAP ══ -->
-    <div class="view" id="view-coverage">
-      <div class="stat-grid-4">
-        <div class="stat-card green"><div class="stat-glow"></div><div class="stat-lbl">Sources Connected</div><div class="stat-val green" id="cov-connected">0</div></div>
-        <div class="stat-card amber"><div class="stat-glow"></div><div class="stat-lbl">Partial Coverage</div><div class="stat-val amber" id="cov-partial">0</div></div>
-        <div class="stat-card red"><div class="stat-glow"></div><div class="stat-lbl">Blind Spots</div><div class="stat-val red" id="cov-blind">0</div></div>
-        <div class="stat-card"><div class="stat-glow"></div><div class="stat-lbl">Coverage %</div><div class="stat-val" id="cov-pct">0%</div></div>
-      </div>
-      <div class="main-side">
-        <div class="card" style="flex:1.5">
-          <div class="card-head"><span class="card-title">Coverage Map</span><span class="tier-badge t1">Discovery</span></div>
-          <div id="coverage-map" style="padding:16px"></div>
-        </div>
-        <div class="card">
-          <div class="card-head"><span class="card-title">Blind Spots</span></div>
-          <div id="coverage-blindspots" style="padding:16px"></div>
-        </div>
-      </div>
-    </div>
+    <div class="view" id="view-coverage"></div>
 
     <!-- ══ OPERATIONS WORKBENCH ══ -->
-    <div class="view" id="view-operations">
-      <div class="stat-grid-4">
-        <div class="stat-card red"><div class="stat-glow"></div><div class="stat-lbl">New Agents (24h)</div><div class="stat-val red" id="ops-new">0</div></div>
-        <div class="stat-card amber"><div class="stat-glow"></div><div class="stat-lbl">Gone Dark</div><div class="stat-val amber" id="ops-dark">0</div></div>
-        <div class="stat-card purple"><div class="stat-glow"></div><div class="stat-lbl">Risk Changes</div><div class="stat-val purple" id="ops-risk">0</div></div>
-        <div class="stat-card amber"><div class="stat-glow"></div><div class="stat-lbl">Review Due</div><div class="stat-val amber" id="ops-review">0</div></div>
-      </div>
-      <div class="main-side">
-        <div class="card" style="flex:1.5">
-          <div class="card-head"><span class="card-title">Work Queue</span><span class="tier-badge t2">Operations</span></div>
-          <div id="ops-queue" style="padding:0"></div>
-        </div>
-        <div class="card">
-          <div class="card-head"><span class="card-title">Discovery Events</span></div>
-          <div id="ops-events" style="padding:0;max-height:500px;overflow-y:auto"></div>
-        </div>
-      </div>
-    </div>
+    <div class="view" id="view-operations"></div>
 
-    <!-- ══ SHADOW AI DASHBOARD ══ -->
-    <div class="view" id="view-shadowdash">
-      <div class="stat-grid-4">
-        <div class="stat-card red"><div class="stat-glow"></div><div class="stat-lbl">Shadow Agents</div><div class="stat-val red" id="sh-total">0</div></div>
-        <div class="stat-card red"><div class="stat-glow"></div><div class="stat-lbl">Critical Risk</div><div class="stat-val red" id="sh-crit">0</div></div>
-        <div class="stat-card amber"><div class="stat-glow"></div><div class="stat-lbl">PHI Exposure</div><div class="stat-val amber" id="sh-phi">0</div></div>
-        <div class="stat-card green"><div class="stat-glow"></div><div class="stat-lbl">Resolved Today</div><div class="stat-val green" id="sh-resolved">0</div></div>
-      </div>
-      <div class="main-side">
-        <div class="card" style="flex:1.5">
-          <div class="card-head"><span class="card-title">Shadow AI Agents</span><span class="tier-badge t1">Unauthorized</span><button class="btn sm" onclick="runPolicyAutoResponse()" style="margin-left:auto">Auto-remediate all</button></div>
-          <div id="shadow-agent-list" style="padding:0"></div>
-        </div>
-        <div class="card">
-          <div class="card-head"><span class="card-title">Detection Sources</span></div>
-          <div id="shadow-sources" style="padding:16px"></div>
-          <div class="card-head" style="margin-top:8px"><span class="card-title">Trend (30 days)</span></div>
-          <div id="shadow-trend" style="padding:16px"></div>
-        </div>
-      </div>
-    </div>
+    <!-- ══ EU AI ACT ══ -->
+    <div class="view" id="view-euai"></div>
 
 </body>
 </html>
