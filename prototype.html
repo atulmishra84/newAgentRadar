@@ -818,10 +818,8 @@ function fingerprint(a) {
 }
 
 function scoreAgent(a, weights) {
-  const w = {
-    ...DEFAULT_WEIGHTS,
-    ...(weights || (typeof state !== 'undefined' ? state.riskWeights : null) || {}),
-  };
+  // Never read `state` here — SEED runs before `const state` is initialized.
+  const w = { ...DEFAULT_WEIGHTS, ...(weights || {}) };
   if (a.riskAccepted && a.riskAcceptedUntil && new Date(a.riskAcceptedUntil) > new Date()) {
     return {
       score: Math.min(a.score ?? 0, 29),
@@ -858,11 +856,11 @@ function buildFw(a) {
   return fw;
 }
 
-function enrich(a) {
+function enrich(a, weights) {
   a.external_id = a.external_id || `${(a.sources||['manual'])[0]}:${(a.name||'').toLowerCase().replace(/\s+/g,'-')}`;
   a.fingerprint = a.fingerprint || fingerprint(a);
   a.fw = buildFw(a);
-  const s = scoreAgent(a);
+  const s = scoreAgent(a, weights);
   a.score = s.score; a.level = s.level; a.factors = s.factors;
   a.confidence = (a.sources?.length||0) >= 3 ? 'confirmed' : (a.sources?.length||0) === 2 ? 'likely' : 'candidate';
   return a;
@@ -2136,7 +2134,7 @@ function setTab(t) { state.tab = t; render(); }
 function find(id) { return state.agents.find(a => a.id === id); }
 function refreshAgent(a) {
   const base = {...a}; delete base.fw; delete base.score; delete base.level; delete base.factors; delete base.confidence;
-  Object.assign(a, enrich(base));
+  Object.assign(a, enrich(base, state.riskWeights));
 }
 function approve(id) {
   const a = find(id); if (!a) return;
