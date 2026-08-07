@@ -1,0 +1,29 @@
+{
+  "name": "agentradar",
+  "version": "1.0.0",
+  "private": true,
+  "description": "AgentRadar — Enterprise AI Agent Discovery & Governance Platform",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev -w @agentradar/api & npm run dev -w @agentradar/web",
+    "dev:api": "npm run dev -w @agentradar/api",
+    "dev:web": "npm run dev -w @agentradar/web",
+    "build": "npm run build -w @agentradar/web",
+    "start": "npm run start -w @agentradar/api",
+    "migrate": "node scripts/migrate.js",
+    "seed": "node scripts/seed.js",
+    "test": "npm run test -w @agentradar/api",
+    "test:integration": "npm run test:integration -w @agentradar/api",
+    "lint": "npm run lint -w @agentradar/web --if-present"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "pg": "^8.13.1"
+  }
+}

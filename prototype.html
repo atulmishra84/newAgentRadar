@@ -1,0 +1,2465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AgentRadar — Your CMDB for AI agents</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+:root {
+  --ink: #10242c;
+  --ink-soft: #3d5660;
+  --muted: #6b8490;
+  --line: rgba(16, 36, 44, 0.08);
+  --line-strong: rgba(16, 36, 44, 0.12);
+  --surface: rgba(255, 255, 255, 0.72);
+  --surface-solid: #ffffff;
+  --surface-soft: rgba(255, 255, 255, 0.5);
+  --accent: #0f7a62;
+  --accent-bright: #14967a;
+  --accent-soft: rgba(15, 122, 98, 0.08);
+  --accent-mid: rgba(15, 122, 98, 0.14);
+  --warn: #b7791f;
+  --warn-soft: rgba(183, 121, 31, 0.1);
+  --danger: #c23b3b;
+  --danger-soft: rgba(194, 59, 59, 0.1);
+  --ok: #1f8a5b;
+  --ok-soft: rgba(31, 138, 91, 0.1);
+  --radius: 14px;
+  --radius-sm: 10px;
+  --font: 'Plus Jakarta Sans', system-ui, sans-serif;
+  --display: 'Bricolage Grotesque', Georgia, serif;
+  --shadow: 0 1px 2px rgba(16, 36, 44, 0.04), 0 8px 24px rgba(16, 36, 44, 0.06);
+  --shadow-lg: 0 2px 4px rgba(16, 36, 44, 0.04), 0 20px 48px rgba(16, 36, 44, 0.08);
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body {
+  font-family: var(--font);
+  color: var(--ink);
+  background: #eef3f5;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+.mesh {
+  position: fixed; inset: 0; z-index: -1;
+  background:
+    radial-gradient(ellipse 70% 50% at 8% 0%, rgba(20, 150, 122, 0.16), transparent 55%),
+    radial-gradient(ellipse 55% 45% at 95% 10%, rgba(183, 121, 31, 0.08), transparent 50%),
+    radial-gradient(ellipse 50% 40% at 70% 100%, rgba(15, 90, 110, 0.1), transparent 55%),
+    linear-gradient(165deg, #f7fafb 0%, #eef4f6 45%, #e8f0f2 100%);
+}
+.mesh::after {
+  content: '';
+  position: absolute; inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%2310242c' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+  opacity: 0.9;
+  pointer-events: none;
+}
+
+.shell {
+  display: grid;
+  grid-template-columns: 248px 1fr;
+  height: 100vh;
+}
+
+.sidebar {
+  padding: 1.5rem 1rem 1.25rem;
+  border-right: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.55);
+  backdrop-filter: blur(20px) saturate(1.2);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+.brand-block { padding: 0 .5rem; margin-bottom: 1.5rem; }
+.brand {
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 1.65rem;
+  letter-spacing: -0.04em;
+  margin: 0;
+  color: var(--ink);
+  line-height: 1.1;
+}
+.brand span { color: var(--accent); }
+.tagline {
+  color: var(--muted);
+  font-size: 0.72rem;
+  margin: 0.4rem 0 0;
+  line-height: 1.4;
+  max-width: 20ch;
+}
+.tenant-chip {
+  display: flex; align-items: center; gap: 0.55rem;
+  margin: 1rem 0.35rem 0;
+  padding: 0.55rem 0.65rem;
+  border-radius: 12px;
+  background: var(--accent-soft);
+  border: 1px solid rgba(15, 122, 98, 0.12);
+}
+.tenant-mark {
+  width: 28px; height: 28px; border-radius: 8px;
+  background: linear-gradient(145deg, var(--accent-bright), var(--accent));
+  color: #fff; font-size: 0.7rem; font-weight: 700;
+  display: grid; place-items: center; flex-shrink: 0;
+}
+.tenant-chip strong { display: block; font-size: 0.78rem; color: var(--ink); }
+.tenant-chip span { font-size: 0.68rem; color: var(--muted); }
+
+.nav { flex: 1; }
+.nav-label {
+  font-size: 0.62rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+  margin: 1.1rem 0.55rem 0.4rem;
+}
+.nav button {
+  display: flex; align-items: center; gap: 0.55rem;
+  width: 100%; text-align: left;
+  padding: 0.5rem 0.7rem;
+  border-radius: 10px; border: 0;
+  background: transparent;
+  color: var(--ink-soft);
+  font: inherit; font-size: 0.875rem; font-weight: 500;
+  cursor: pointer; margin-bottom: 2px;
+  transition: background 0.18s, color 0.18s;
+}
+.nav button .dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: transparent; flex-shrink: 0;
+  transition: background 0.18s;
+}
+.nav button:hover { background: rgba(16, 36, 44, 0.04); color: var(--ink); }
+.nav button.active {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 600;
+}
+.nav button.active .dot { background: var(--accent); }
+
+.user-block {
+  margin-top: auto;
+  padding: 0.85rem 0.65rem 0.25rem;
+  border-top: 1px solid var(--line);
+}
+.user-block .name { font-size: 0.85rem; font-weight: 600; color: var(--ink); }
+.user-block .role {
+  font-size: 0.7rem; color: var(--muted);
+  text-transform: capitalize; margin-top: 2px;
+}
+
+.main {
+  padding: 1.75rem 2rem 3rem;
+  overflow-y: auto;
+  min-width: 0;
+}
+
+.topbar {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 1rem; margin-bottom: 1.5rem;
+  animation: rise 0.45s ease both;
+}
+.page-head h1 {
+  font-family: var(--display);
+  font-size: 1.9rem;
+  font-weight: 700;
+  margin: 0 0 0.35rem;
+  letter-spacing: -0.03em;
+  color: var(--ink);
+}
+.page-head p { margin: 0; color: var(--muted); max-width: 52ch; font-size: 0.92rem; line-height: 1.5; }
+.topbar-meta {
+  display: flex; align-items: center; gap: 0.5rem;
+  flex-shrink: 0; padding-top: 0.35rem;
+}
+.pill-meta {
+  font-size: 0.72rem; font-weight: 600;
+  color: var(--ink-soft);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  padding: 0.35rem 0.7rem;
+  border-radius: 8px;
+}
+
+.glass {
+  background: var(--surface);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(18px) saturate(1.15);
+  border-radius: var(--radius);
+  padding: 1.15rem 1.25rem;
+}
+.glass-link { cursor: pointer; transition: transform 0.18s, box-shadow 0.18s; }
+.glass-link:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
+
+.grid { display: grid; gap: 1rem; }
+.g4 { grid-template-columns: repeat(4, 1fr); }
+.g3 { grid-template-columns: repeat(3, 1fr); }
+.g2 { grid-template-columns: repeat(2, 1fr); }
+
+.stat {
+  position: relative;
+  overflow: hidden;
+  animation: rise 0.5s ease both;
+}
+.stat:nth-child(2) { animation-delay: 0.04s; }
+.stat:nth-child(3) { animation-delay: 0.08s; }
+.stat:nth-child(4) { animation-delay: 0.12s; }
+.stat-label {
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.stat-value {
+  font-family: var(--display);
+  font-size: 2rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  margin: 0.35rem 0 0.15rem;
+  color: var(--ink);
+  line-height: 1;
+}
+.stat-hint { font-size: 0.72rem; color: var(--muted); }
+.stat::before {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0; height: 2px;
+  background: linear-gradient(90deg, var(--accent), transparent);
+  opacity: 0.55;
+}
+
+.btn {
+  border: 1px solid var(--line-strong);
+  background: var(--surface-solid);
+  color: var(--ink);
+  border-radius: 9px;
+  padding: 0.48rem 0.9rem;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, transform 0.15s, color 0.15s;
+  white-space: nowrap;
+}
+.btn:hover { background: #f8fbfc; border-color: rgba(16, 36, 44, 0.18); transform: translateY(-1px); }
+.btn-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+.btn-primary:hover { background: var(--accent-bright); border-color: var(--accent-bright); color: #fff; }
+.btn-danger {
+  background: var(--danger-soft);
+  border-color: rgba(194, 59, 59, 0.2);
+  color: var(--danger);
+}
+.btn-ghost { background: transparent; border-color: transparent; color: var(--muted); }
+.btn-ghost:hover { background: rgba(16, 36, 44, 0.04); color: var(--ink); border-color: transparent; }
+
+.badge {
+  display: inline-flex; align-items: center;
+  padding: 0.18rem 0.5rem;
+  border-radius: 6px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.b-critical, .b-danger { background: var(--danger-soft); color: var(--danger); }
+.b-high { background: rgba(183, 121, 31, 0.12); color: var(--warn); }
+.b-medium { background: rgba(183, 121, 31, 0.08); color: #9a6b18; }
+.b-low, .b-ok { background: var(--ok-soft); color: var(--ok); }
+.b-shadow { background: var(--danger-soft); color: var(--danger); }
+.b-phi { background: var(--accent-soft); color: var(--accent); }
+
+.table-wrap { overflow-x: auto; padding: 0; }
+table { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
+th, td {
+  text-align: left;
+  padding: 0.85rem 1.15rem;
+  border-bottom: 1px solid var(--line);
+}
+th {
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  background: rgba(248, 251, 252, 0.8);
+  position: sticky; top: 0;
+}
+tbody tr { cursor: pointer; transition: background 0.12s; }
+tbody tr:hover { background: rgba(15, 122, 98, 0.04); }
+tbody tr:last-child td { border-bottom: 0; }
+.agent-name { font-weight: 600; color: var(--ink); }
+.agent-sub { font-size: 0.72rem; color: var(--muted); margin-top: 2px; }
+
+.toolbar {
+  display: flex; gap: 0.55rem; flex-wrap: wrap;
+  margin-bottom: 1rem; align-items: center;
+}
+input, select, textarea {
+  background: var(--surface-solid);
+  border: 1px solid var(--line-strong);
+  color: var(--ink);
+  border-radius: 9px;
+  padding: 0.52rem 0.8rem;
+  font: inherit;
+  font-size: 0.86rem;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+input:focus, select:focus {
+  outline: none;
+  border-color: rgba(15, 122, 98, 0.45);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.muted { color: var(--muted); }
+
+.bar {
+  height: 6px;
+  background: rgba(16, 36, 44, 0.06);
+  border-radius: 99px;
+  overflow: hidden;
+  margin-top: 0.4rem;
+}
+.bar > span {
+  display: block; height: 100%;
+  background: linear-gradient(90deg, var(--accent), var(--accent-bright));
+  border-radius: 99px;
+  transition: width 0.55s ease;
+}
+
+.heatmap {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+  gap: 0.65rem;
+}
+.heat-cell {
+  padding: 0.9rem;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--surface-solid);
+  transition: transform 0.15s, border-color 0.15s;
+}
+.heat-cell:hover { transform: translateY(-1px); border-color: rgba(15, 122, 98, 0.25); }
+.row-actions { display: flex; gap: 0.4rem; flex-wrap: wrap; align-items: center; }
+
+.section-title {
+  font-family: var(--display);
+  font-size: 1.05rem;
+  font-weight: 600;
+  margin: 0 0 0.85rem;
+  letter-spacing: -0.02em;
+}
+
+.drawer-bg {
+  position: fixed; inset: 0;
+  background: rgba(16, 36, 44, 0.28);
+  backdrop-filter: blur(3px);
+  z-index: 40;
+  animation: fade 0.2s ease;
+}
+.drawer {
+  position: fixed; top: 0; right: 0;
+  width: min(440px, 100%);
+  height: 100%;
+  z-index: 50;
+  background: rgba(255, 255, 255, 0.94);
+  border-left: 1px solid var(--line);
+  backdrop-filter: blur(22px);
+  padding: 1.5rem;
+  overflow-y: auto;
+  box-shadow: -12px 0 40px rgba(16, 36, 44, 0.08);
+  animation: slide 0.28s ease;
+}
+.drawer h2 {
+  font-family: var(--display);
+  font-size: 1.35rem;
+  letter-spacing: -0.03em;
+  margin: 0;
+}
+.tabs { display: flex; gap: 0.35rem; margin: 1.1rem 0; flex-wrap: wrap; }
+.tab {
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  border-radius: 8px;
+  padding: 0.35rem 0.7rem;
+  font: inherit; font-size: 0.78rem; font-weight: 600;
+  cursor: pointer;
+  text-transform: capitalize;
+}
+.tab.active {
+  color: var(--accent);
+  border-color: rgba(15, 122, 98, 0.3);
+  background: var(--accent-soft);
+}
+.detail-row {
+  display: flex; justify-content: space-between;
+  gap: 1rem; padding: 0.55rem 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 0.88rem;
+}
+.detail-row:last-child { border-bottom: 0; }
+.detail-row span:first-child { color: var(--muted); }
+.detail-row span:last-child { font-weight: 600; text-align: right; }
+
+.toast {
+  position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 60;
+  background: var(--ink); color: #fff;
+  padding: 0.8rem 1.1rem;
+  border-radius: 12px;
+  font-size: 0.85rem; font-weight: 500;
+  box-shadow: var(--shadow-lg);
+  display: none;
+  max-width: 320px;
+}
+.toast.show { display: block; animation: rise 0.28s ease; }
+
+.login {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 1.05fr 0.95fr;
+}
+.login-visual {
+  position: relative;
+  padding: 3rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  overflow: hidden;
+}
+.login-visual::before {
+  content: '';
+  position: absolute; inset: 0;
+  background:
+    radial-gradient(ellipse 80% 60% at 20% 30%, rgba(20, 150, 122, 0.22), transparent 55%),
+    radial-gradient(ellipse 50% 40% at 80% 80%, rgba(15, 90, 110, 0.12), transparent 50%),
+    linear-gradient(160deg, #0d2a32 0%, #134049 50%, #0f3d36 100%);
+  z-index: 0;
+}
+.login-visual > * { position: relative; z-index: 1; }
+.login-brand {
+  font-family: var(--display);
+  font-size: clamp(2.8rem, 5vw, 4rem);
+  font-weight: 700;
+  letter-spacing: -0.045em;
+  color: #fff;
+  margin: 0;
+  line-height: 1;
+}
+.login-brand span { color: #5ee0bf; }
+.login-visual .lead {
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 1.1rem;
+  max-width: 28ch;
+  line-height: 1.55;
+  margin: 1rem 0 0;
+}
+.login-visual .proof {
+  display: grid; gap: 0.75rem;
+  margin-top: auto;
+}
+.proof-item {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 0.9rem 1rem;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 0.88rem;
+  backdrop-filter: blur(10px);
+}
+.proof-item strong { display: block; color: #fff; font-size: 0.95rem; margin-bottom: 0.2rem; }
+
+.login-panel {
+  display: grid; place-items: center;
+  padding: 2.5rem;
+  background: rgba(255, 255, 255, 0.45);
+  backdrop-filter: blur(16px);
+}
+.login-card {
+  width: min(400px, 100%);
+  animation: rise 0.5s ease both;
+}
+.login-card h2 {
+  font-family: var(--display);
+  font-size: 1.65rem;
+  letter-spacing: -0.03em;
+  margin: 0 0 0.35rem;
+}
+.login-card .sub { color: var(--muted); margin: 0 0 1.5rem; font-size: 0.9rem; }
+.form-row { margin-bottom: 0.95rem; }
+.form-row label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+  margin-bottom: 0.35rem;
+}
+.form-row input, .form-row select { width: 100%; }
+.persona {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+  margin-top: 1.15rem;
+}
+.persona button {
+  text-align: left;
+  padding: 0.75rem 0.8rem;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--surface-solid);
+  color: var(--ink);
+  font: inherit;
+  cursor: pointer;
+  transition: border-color 0.15s, transform 0.15s, box-shadow 0.15s;
+}
+.persona button:hover {
+  border-color: rgba(15, 122, 98, 0.35);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow);
+}
+.persona strong { display: block; font-size: 0.82rem; }
+.persona span { font-size: 0.7rem; color: var(--muted); line-height: 1.3; display: block; margin-top: 2px; }
+
+.alert {
+  padding: 0.85rem 1rem;
+  border-radius: 12px;
+  font-size: 0.88rem;
+  margin-bottom: 1rem;
+  border: 1px solid transparent;
+}
+.alert-warn { background: var(--warn-soft); border-color: rgba(183, 121, 31, 0.18); color: #8a5a12; }
+.alert-danger { background: var(--danger-soft); border-color: rgba(194, 59, 59, 0.18); color: var(--danger); }
+
+.queue-item {
+  display: flex; justify-content: space-between; align-items: center;
+  gap: 0.75rem; padding: 0.65rem 0;
+  border-bottom: 1px solid var(--line);
+}
+.queue-item:last-child { border-bottom: 0; }
+
+/* Charts */
+.chart-card { min-height: 280px; }
+.chart-head {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  gap: 1rem; margin-bottom: 1rem;
+}
+.chart-head p { margin: 0.2rem 0 0; font-size: 0.8rem; color: var(--muted); }
+.donut-wrap {
+  display: grid; grid-template-columns: 160px 1fr; gap: 1.25rem; align-items: center;
+}
+.donut-svg { width: 160px; height: 160px; }
+.legend { display: grid; gap: 0.55rem; }
+.legend-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;
+  font-size: 0.82rem;
+}
+.legend-left { display: flex; align-items: center; gap: 0.5rem; color: var(--ink-soft); }
+.swatch { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+.hbar { display: grid; gap: 0.7rem; }
+.hbar-row { display: grid; grid-template-columns: 92px 1fr 36px; gap: 0.65rem; align-items: center; font-size: 0.8rem; }
+.hbar-track {
+  height: 8px; border-radius: 99px; background: rgba(16,36,44,0.06); overflow: hidden;
+}
+.hbar-fill {
+  height: 100%; border-radius: 99px;
+  background: linear-gradient(90deg, var(--accent), var(--accent-bright));
+  transition: width 0.6s ease;
+}
+.area-chart { width: 100%; height: 180px; display: block; }
+.chart-empty { color: var(--muted); font-size: 0.85rem; }
+
+/* Integrations */
+.integ-hero {
+  display: grid; grid-template-columns: 1.4fr 1fr; gap: 1rem; margin-bottom: 1rem;
+}
+.integ-kpi {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem;
+}
+.integ-kpi .glass { padding: 1rem; }
+.scan-bar {
+  display: flex; flex-wrap: wrap; gap: 0.45rem; align-items: center;
+  padding: 0.85rem 1rem; margin-bottom: 1rem;
+}
+.scan-bar .label {
+  font-size: 0.72rem; font-weight: 700; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--muted); margin-right: 0.35rem;
+}
+.provider-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); gap: 0.65rem;
+}
+.provider-tile {
+  text-align: left; padding: 0.9rem; border-radius: 12px;
+  border: 1px solid var(--line); background: var(--surface-solid);
+  cursor: pointer; font: inherit; color: var(--ink);
+  transition: border-color 0.15s, transform 0.15s, box-shadow 0.15s, background 0.15s;
+}
+.provider-tile:hover {
+  border-color: rgba(15,122,98,0.3); transform: translateY(-1px); box-shadow: var(--shadow);
+}
+.provider-tile.selected {
+  border-color: rgba(15,122,98,0.45); background: var(--accent-soft);
+  box-shadow: 0 0 0 3px rgba(15,122,98,0.08);
+}
+.provider-tile.connected { opacity: 0.72; }
+.provider-ico {
+  width: 34px; height: 34px; border-radius: 9px;
+  display: grid; place-items: center;
+  font-size: 0.68rem; font-weight: 700; color: #fff;
+  background: linear-gradient(145deg, #1a8f76, #0f7a62);
+  margin-bottom: 0.65rem;
+}
+.provider-tile strong { display: block; font-size: 0.82rem; line-height: 1.25; }
+.provider-tile span { display: block; font-size: 0.7rem; color: var(--muted); margin-top: 0.2rem; text-transform: uppercase; letter-spacing: 0.04em; }
+.connector-table td { cursor: default; }
+.connector-table tbody tr:hover { background: rgba(15,122,98,0.03); }
+.status-dot {
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  font-size: 0.78rem; font-weight: 600; color: var(--ok);
+}
+.status-dot::before {
+  content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--ok);
+}
+.status-dot.error { color: var(--danger); }
+.status-dot.error::before { background: var(--danger); }
+.wizard-steps {
+  display: flex; gap: 0.5rem; margin-bottom: 1.1rem; flex-wrap: wrap;
+}
+.wizard-step {
+  font-size: 0.72rem; font-weight: 700; letter-spacing: 0.04em;
+  text-transform: uppercase; color: var(--muted);
+  padding: 0.35rem 0.65rem; border-radius: 8px; background: rgba(16,36,44,0.04);
+}
+.wizard-step.on { color: var(--accent); background: var(--accent-soft); }
+.hipaa-note {
+  margin: 0.75rem 0 1rem; padding: 0.75rem 0.85rem; border-radius: 10px;
+  background: rgba(183,121,31,0.08); border: 1px solid rgba(183,121,31,0.16);
+  color: #8a5a12; font-size: 0.8rem; line-height: 1.45;
+}
+.group-tabs { display: flex; gap: 0.35rem; flex-wrap: wrap; margin-bottom: 0.85rem; }
+.group-tab {
+  border: 1px solid var(--line); background: var(--surface-solid); color: var(--ink-soft);
+  border-radius: 8px; padding: 0.4rem 0.7rem; font: inherit; font-size: 0.78rem;
+  font-weight: 600; cursor: pointer; text-transform: capitalize;
+}
+.group-tab.active { color: var(--accent); border-color: rgba(15,122,98,0.3); background: var(--accent-soft); }
+
+.sso-provider {
+  display: flex; gap: 1rem; align-items: flex-start;
+  padding: 1rem; border-radius: 12px; border: 1px solid var(--line);
+  background: var(--surface-solid); margin-bottom: 0.75rem;
+}
+.sso-provider.active { border-color: rgba(15,122,98,0.28); background: rgba(15,122,98,0.04); }
+.sso-ico {
+  width: 42px; height: 42px; border-radius: 11px; flex-shrink: 0;
+  display: grid; place-items: center; font-weight: 700; font-size: 0.72rem; color: #fff;
+  background: linear-gradient(145deg, #1a8f76, #0f7a62);
+}
+.sso-ico.ms { background: linear-gradient(145deg, #3b82c4, #1e5a96); }
+.sso-ico.saml { background: linear-gradient(145deg, #5b6b7a, #334155); }
+.toggle {
+  position: relative; width: 40px; height: 22px; border-radius: 99px;
+  background: rgba(16,36,44,0.15); border: 0; cursor: pointer; flex-shrink: 0;
+  transition: background 0.2s;
+}
+.toggle.on { background: var(--accent); }
+.toggle::after {
+  content: ''; position: absolute; top: 3px; left: 3px;
+  width: 16px; height: 16px; border-radius: 50%; background: #fff;
+  transition: transform 0.2s;
+}
+.toggle.on::after { transform: translateX(18px); }
+.code-box {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.75rem; background: rgba(16,36,44,0.04);
+  border: 1px solid var(--line); border-radius: 8px;
+  padding: 0.55rem 0.7rem; color: var(--ink-soft); word-break: break-all;
+}
+.role-chip {
+  display: inline-flex; align-items: center;
+  padding: 0.2rem 0.55rem; border-radius: 6px;
+  font-size: 0.7rem; font-weight: 700; letter-spacing: 0.02em;
+  background: var(--accent-soft); color: var(--accent); text-transform: capitalize;
+}
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes slide {
+  from { transform: translateX(20px); opacity: 0.7; }
+  to { transform: none; opacity: 1; }
+}
+
+.positioning {
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border: 1px solid rgba(15, 122, 98, 0.18);
+  border-radius: 8px;
+  padding: 0.25rem 0.5rem;
+  margin: 0.45rem 0 0;
+}
+.wedge-banner {
+  display: grid;
+  grid-template-columns: 1.5fr 1fr;
+  gap: 1rem;
+  align-items: center;
+  margin-bottom: 1rem;
+  background:
+    linear-gradient(120deg, rgba(15, 122, 98, 0.1), rgba(255, 255, 255, 0.75)),
+    var(--surface);
+}
+.wedge-banner h2 {
+  font-family: var(--display);
+  margin: 0 0 0.35rem;
+  font-size: 1.25rem;
+  letter-spacing: -0.02em;
+}
+.pill-row { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.7rem; }
+.pill {
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.28rem 0.55rem;
+  border-radius: 999px;
+  background: #fff;
+  border: 1px solid var(--line);
+  color: var(--ink);
+}
+.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.75rem; word-break: break-all; color: var(--ink-soft); }
+.badge-demo { background: rgba(107,132,144,.12); color: #3d5560; }
+.badge-live { background: var(--accent-soft); color: var(--accent); }
+.badge-wave { background: var(--warn-soft); color: var(--warn); }
+@media (max-width: 960px) {
+  .wedge-banner { grid-template-columns: 1fr; }
+}
+@media (max-width: 960px) {
+  .shell { grid-template-columns: 1fr; }
+  .sidebar { display: none; }
+  .login { grid-template-columns: 1fr; }
+  .login-visual { display: none; }
+  .g3 { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 640px) {
+  .g4, .g3, .g2 { grid-template-columns: 1fr; }
+  .main { padding: 1.1rem; }
+  .persona { grid-template-columns: 1fr; }
+  .donut-wrap, .integ-kpi { grid-template-columns: 1fr; }
+}
+@media print {
+  .sidebar, .toast, .toolbar, .drawer-bg, .drawer { display: none !important; }
+  .shell { display: block; }
+  .main { overflow: visible; }
+  body { overflow: visible; background: #fff; }
+}
+</style>
+</head>
+<body>
+<div class="mesh"></div>
+<div id="app"></div>
+<div class="toast" id="toast"></div>
+<script>
+const FRAMEWORKS = ['HIPAA','SOC2','ISO27001','GDPR','NIST_AI_RMF','EU_AI_ACT','HITRUST','FDA_SAMD'];
+const PROVIDERS = [
+  {id:'azure',name:'Microsoft Azure',group:'cloud',fields:['tenantId','clientId','clientSecret','subscriptionId'],abbr:'AZ'},
+  {id:'aws',name:'Amazon AWS',group:'cloud',fields:['accessKeyId','secretAccessKey','region'],abbr:'AW'},
+  {id:'gcp',name:'Google Cloud',group:'cloud',fields:['projectId','serviceAccountJson'],abbr:'GC'},
+  {id:'m365',name:'M365 Copilot',group:'saas',fields:['tenantId','clientId','clientSecret'],abbr:'M3'},
+  {id:'salesforce',name:'Salesforce Einstein',group:'saas',fields:['instanceUrl','clientId','clientSecret'],abbr:'SF'},
+  {id:'servicenow',name:'ServiceNow Now Assist',group:'saas',fields:['instanceUrl','username','password'],abbr:'SN'},
+  {id:'epic',name:'Epic EHR',group:'healthcare',fields:['fhirBaseUrl','clientId','clientSecret'],hipaa:true,abbr:'EP'},
+  {id:'cerner',name:'Cerner / Oracle Health',group:'healthcare',fields:['fhirBaseUrl','clientId','clientSecret'],hipaa:true,abbr:'CR'},
+  {id:'meditech',name:'Meditech Expanse',group:'healthcare',fields:['baseUrl','apiKey'],hipaa:true,abbr:'MD'},
+  {id:'crowdstrike',name:'CrowdStrike Falcon',group:'edr',fields:['clientId','clientSecret','baseUrl'],abbr:'CS'},
+  {id:'defender',name:'Defender for Endpoint',group:'edr',fields:['tenantId','clientId','clientSecret'],abbr:'DF'},
+  {id:'intune',name:'Microsoft Intune',group:'edr',fields:['tenantId','clientId','clientSecret'],abbr:'IN'},
+  {id:'cortex',name:'Cortex XDR',group:'edr',fields:['apiKey','baseUrl'],abbr:'CX'},
+  {id:'sentinel',name:'Microsoft Sentinel',group:'siem',fields:['workspaceId','tenantId','clientId','clientSecret'],abbr:'SE'},
+  {id:'splunk',name:'Splunk',group:'siem',fields:['hecUrl','token'],abbr:'SP'},
+  {id:'elastic',name:'Elastic SIEM',group:'siem',fields:['cloudId','apiKey'],abbr:'EL'},
+  {id:'qradar',name:'IBM QRadar',group:'siem',fields:['host','token'],abbr:'QR'},
+  {id:'zscaler',name:'Zscaler ZIA',group:'network',fields:['apiKey','username','password'],abbr:'ZS'},
+  {id:'netskope',name:'Netskope CASB',group:'network',fields:['tenant','token'],abbr:'NS'},
+  {id:'github',name:'GitHub',group:'git',fields:['token','org'],abbr:'GH'},
+  {id:'gitlab',name:'GitLab',group:'git',fields:['token','baseUrl'],abbr:'GL'},
+  {id:'jenkins',name:'Jenkins',group:'git',fields:['baseUrl','username','apiToken'],abbr:'JK'},
+];
+
+const GROUP_LABELS = { cloud:'Cloud', saas:'SaaS', healthcare:'Healthcare', edr:'EDR', siem:'SIEM', network:'Network', git:'Git / CI' };
+const FIRST_WAVE = ['azure','m365','epic','crowdstrike','defender','intune','github'];
+const LIVE_CAPABLE = ['azure','github'];
+const DEFAULT_WEIGHTS = { phi:20, pii:10, shadow:25, compliance_per_fail:3, compliance_cap:20, no_owner:10, never_reviewed:10 };
+
+PROVIDERS.forEach(p => {
+  p.firstWave = FIRST_WAVE.includes(p.id);
+  p.liveCapable = LIVE_CAPABLE.includes(p.id);
+});
+
+function fingerprint(a) {
+  const basis = a.external_id
+    ? `${a.cat||''}|${a.external_id}`
+    : [a.cat||'', a.host||'', a.env||'', (a.name||'').toLowerCase(), a.model||''].join('|');
+  let h = 0;
+  for (let i = 0; i < basis.length; i++) h = ((h << 5) - h + basis.charCodeAt(i)) | 0;
+  return Math.abs(h).toString(16).padStart(8,'0') + Math.abs(h * 31).toString(16).padStart(8,'0');
+}
+
+function scoreAgent(a, weights) {
+  const w = {
+    ...DEFAULT_WEIGHTS,
+    ...(weights || (typeof state !== 'undefined' ? state.riskWeights : null) || {}),
+  };
+  if (a.riskAccepted && a.riskAcceptedUntil && new Date(a.riskAcceptedUntil) > new Date()) {
+    return {
+      score: Math.min(a.score ?? 0, 29),
+      level: 'low',
+      factors: [{ c: `Risk accepted until ${a.riskAcceptedUntil}`, w: 0 }],
+    };
+  }
+  const factors = [];
+  let score = 0;
+  if (a.phi) { score += w.phi; factors.push({c:'PHI access',w:w.phi}); }
+  if (a.pii) { score += w.pii; factors.push({c:'PII access',w:w.pii}); }
+  if (a.shadow) { score += w.shadow; factors.push({c:'Shadow AI',w:w.shadow}); }
+  let fails = 0;
+  for (const fw of FRAMEWORKS) if ((a.fw?.[fw]||'pass') === 'fail') fails++;
+  const pen = Math.min(w.compliance_cap, fails * w.compliance_per_fail);
+  if (pen) { score += pen; factors.push({c:'Compliance failures',w:pen}); }
+  if (!a.owner) { score += w.no_owner; factors.push({c:'No owner',w:w.no_owner}); }
+  if (!a.reviewed) { score += w.never_reviewed; factors.push({c:'Never reviewed',w:w.never_reviewed}); }
+  score = Math.max(0, Math.min(100, score));
+  const level = score >= 75 ? 'critical' : score >= 55 ? 'high' : score >= 30 ? 'medium' : 'low';
+  return { score, level, factors };
+}
+
+function buildFw(a) {
+  const fw = {};
+  for (const f of FRAMEWORKS) {
+    let s = 'pass';
+    if (a.phi && ['HIPAA','HITRUST'].includes(f) && a.baa !== 'signed') s = a.baa === 'pending' ? 'warn' : 'fail';
+    if (a.shadow && ['SOC2','NIST_AI_RMF','EU_AI_ACT'].includes(f)) s = s === 'fail' ? 'fail' : 'warn';
+    if (!a.owner && f === 'ISO27001') s = s === 'fail' ? 'fail' : 'warn';
+    if (a.pii && f === 'GDPR' && !a.owner) s = 'fail';
+    fw[f] = s;
+  }
+  return fw;
+}
+
+function enrich(a) {
+  a.external_id = a.external_id || `${(a.sources||['manual'])[0]}:${(a.name||'').toLowerCase().replace(/\s+/g,'-')}`;
+  a.fingerprint = a.fingerprint || fingerprint(a);
+  a.fw = buildFw(a);
+  const s = scoreAgent(a);
+  a.score = s.score; a.level = s.level; a.factors = s.factors;
+  a.confidence = (a.sources?.length||0) >= 3 ? 'confirmed' : (a.sources?.length||0) === 2 ? 'likely' : 'candidate';
+  return a;
+}
+
+const SEED = [
+  {id:1,name:'Azure OpenAI — Clinical Summary',cat:'cloud',env:'production',host:'Azure',model:'Azure OpenAI',phi:true,pii:true,shadow:false,owner:'clinical-ai@acme.health',sources:['azure','sentinel'],baa:'signed',reviewed:'2026-06-01',lifecycle:'active'},
+  {id:2,name:'M365 Copilot — Enterprise',cat:'saas',env:'production',host:'Microsoft 365',model:'GPT-4o',pii:true,shadow:false,owner:'it@acme.health',sources:['m365'],baa:'na',reviewed:'2026-07-15',lifecycle:'active'},
+  {id:3,name:'Epic Cosmos AI Insights',cat:'healthcare',env:'production',host:'Epic',model:'GPT-4o',phi:true,pii:true,shadow:false,owner:'ehr-admin@acme.health',sources:['epic'],baa:'signed',reviewed:'2026-05-20',lifecycle:'active'},
+  {id:4,name:'Cerner CareAware AI',cat:'healthcare',env:'production',host:'Cerner',phi:true,shadow:false,owner:'informatics@acme.health',sources:['cerner'],baa:'pending',lifecycle:'active'},
+  {id:5,name:'Bedrock Claims Assist',cat:'cloud',env:'production',host:'AWS',model:'Claude 3.5',phi:true,shadow:false,owner:'claims@acme.health',sources:['aws'],baa:'signed',reviewed:'2026-07-01',lifecycle:'active'},
+  {id:6,name:'Vertex Imaging QA',cat:'cloud',env:'staging',host:'GCP',model:'Gemini',phi:true,shadow:false,owner:'radiology@acme.health',sources:['gcp'],baa:'missing',lifecycle:'active'},
+  {id:7,name:'LangChain claims-bot',cat:'framework',env:'production',host:'AKS',model:'Azure OpenAI',phi:true,shadow:false,owner:'platform@acme.health',sources:['github','azure'],baa:'na',reviewed:'2026-04-10',lifecycle:'active'},
+  {id:8,name:'Internal MCP — fhir-tools',cat:'mcp',env:'production',host:'Internal',phi:true,shadow:false,owner:'platform@acme.health',sources:['github'],baa:'signed',lifecycle:'active'},
+  {id:9,name:'GitHub Actions AI Release Notes',cat:'ci',env:'ci',host:'GitHub',shadow:false,owner:'devops@acme.health',sources:['github'],baa:'na',lifecycle:'active'},
+  {id:10,name:'ServiceNow Now Assist',cat:'saas',env:'production',host:'ServiceNow',pii:true,shadow:false,owner:'itsm@acme.health',sources:['servicenow'],baa:'na',reviewed:'2026-07-20',lifecycle:'active'},
+  {id:11,name:'Salesforce Agentforce CRM',cat:'saas',env:'production',host:'Salesforce',pii:true,shadow:false,owner:'sales-ops@acme.health',sources:['salesforce'],baa:'na',lifecycle:'active'},
+  {id:12,name:'Ollama on WS-ENG-4421',cat:'local_llm',env:'endpoint',host:'Local',model:'Ollama',shadow:true,sources:['crowdstrike'],baa:'na',lifecycle:'under_review'},
+  {id:13,name:'LM Studio — CLIN-PC-08',cat:'local_llm',env:'endpoint',host:'Local',model:'Mistral',shadow:true,phi:true,sources:['defender','intune'],baa:'missing',lifecycle:'under_review'},
+  {id:14,name:'Cursor IDE — DEV-LAPTOP-19',cat:'ide',env:'endpoint',host:'Local',model:'GPT-4o',shadow:true,pii:true,sources:['crowdstrike'],baa:'na',lifecycle:'under_review'},
+  {id:15,name:'claude.ai via Zscaler',cat:'saas',env:'corporate',host:'Anthropic',model:'Claude 3.5',shadow:true,sources:['zscaler','netskope'],baa:'na',lifecycle:'under_review'},
+  {id:16,name:'Browser AI Extension Cluster',cat:'browser',env:'endpoint',host:'Chrome',shadow:true,sources:['cortex'],baa:'na',lifecycle:'under_review'},
+  {id:17,name:'AutoGen ops swarm',cat:'autonomous',env:'staging',host:'AKS',model:'GPT-4o',shadow:false,owner:'platform@acme.health',sources:['github','azure','sentinel'],baa:'na',reviewed:'2026-07-28',lifecycle:'active'},
+  {id:18,name:'Meditech Expanse CDS AI',cat:'healthcare',env:'production',host:'Meditech',phi:true,shadow:false,sources:['meditech'],baa:'missing',lifecycle:'active'},
+].map(enrich);
+
+const POLICIES = [
+  {key:'shadow_phi',name:'Shadow AI with PHI',desc:'Auto-quarantine shadow agents with PHI access',match:a=>a.shadow&&a.phi,auto:true},
+  {key:'phi_baa',name:'PHI without BAA',desc:'Flag PHI agents missing a Business Associate Agreement',match:a=>a.phi&&a.baa==='missing'},
+  {key:'unowned',name:'Unowned agent',desc:'Request owner assignment for unowned agents',match:a=>!a.owner},
+  {key:'overdue',name:'Overdue review',desc:'Trigger review when cadence exceeds 90 days',match:a=>!a.reviewed},
+  {key:'shadow_high',name:'Shadow AI high risk',desc:'Quarantine or escalate high-risk shadow agents',match:a=>a.shadow&&(a.level==='high'||a.level==='critical'),auto:true},
+  {key:'pii_owner',name:'PII without owner',desc:'Notify security for PII agents without an owner',match:a=>a.pii&&!a.owner},
+];
+
+const PLAYBOOKS = [
+  {name:'Shadow AI Quarantine',desc:'Quarantine unauthorized shadow AI agents',steps:['Identify shadow agents','Set lifecycle to quarantined','Notify security','Log evidence']},
+  {name:'BAA Compliance Check',desc:'Find PHI agents missing BAA coverage',steps:['List PHI agents','Check BAA status','Flag missing agreements','Alert compliance']},
+  {name:'Owner Assignment',desc:'Suggest owners from resource tags',steps:['Find unowned agents','Read owner tags','Assign suggested owner','Notify assignee']},
+  {name:'High Risk Review',desc:'Move critical and high agents into review',steps:['Select high/critical agents','Set under review','Create review tasks','Notify owners']},
+  {name:'Compliance Drift Alert',desc:'Alert when framework failures increase',steps:['Compute fail counts','Compare to baseline','Emit alert','Webhook notify']},
+  {name:'New Agent Onboarding',desc:'Onboard newly discovered agents',steps:['List candidates','Request owner','Schedule review','Mark under review']},
+];
+
+const MODELS = [
+  {name:'GPT-4o',vendor:'OpenAI',host:'cloud',baa:true,soc2:true,hipaa:true},
+  {name:'Claude 3.5',vendor:'Anthropic',host:'cloud',baa:true,soc2:true,hipaa:true},
+  {name:'Gemini',vendor:'Google',host:'cloud',baa:true,soc2:true,hipaa:true},
+  {name:'Azure OpenAI',vendor:'Microsoft',host:'cloud',baa:true,soc2:true,hipaa:true},
+  {name:'Llama 3',vendor:'Meta',host:'self_hosted',baa:false,soc2:false,hipaa:false},
+  {name:'Mistral',vendor:'Mistral AI',host:'cloud',baa:false,soc2:true,hipaa:false},
+  {name:'Ollama',vendor:'Ollama',host:'local',baa:false,soc2:false,hipaa:false},
+];
+
+const state = {
+  user: null,
+  view: 'dashboard',
+  agents: JSON.parse(JSON.stringify(SEED)),
+  selected: null,
+  tab: 'identity',
+  q: '',
+  cat: '',
+  connected: new Set(['azure','epic','crowdstrike','github','zscaler']),
+  connectors: {
+    azure: { status:'active', agents:4, lastTested:'2026-08-07 09:12', lastScanned:'2026-08-07 09:14', name:'Azure Prod', mode:'demo', firstWave:true },
+    epic: { status:'active', agents:1, lastTested:'2026-08-06 16:40', lastScanned:'2026-08-06 16:42', name:'Epic FHIR', mode:'demo', firstWave:true },
+    crowdstrike: { status:'active', agents:3, lastTested:'2026-08-07 08:05', lastScanned:'2026-08-07 08:10', name:'CrowdStrike Fleet', mode:'demo', firstWave:true },
+    github: { status:'active', agents:2, lastTested:'2026-08-05 11:20', lastScanned:'2026-08-05 11:22', name:'GitHub Org', mode:'live', firstWave:true },
+    zscaler: { status:'active', agents:1, lastTested:'2026-08-07 07:55', lastScanned:'2026-08-07 07:58', name:'Zscaler ZIA', mode:'demo', firstWave:false },
+  },
+  integGroup: 'cloud',
+  integProvider: 'azure',
+  integMode: 'demo',
+  riskWeights: { ...DEFAULT_WEIGHTS },
+  webhooks: [
+    { id:1, name:'ServiceNow ITSM', kind:'servicenow', url:'https://acme.example/hooks/servicenow', enabled:true, events:['agent.quarantine','agent.approve'] },
+    { id:2, name:'Zscaler CASB', kind:'zscaler', url:'https://acme.example/hooks/zscaler', enabled:true, events:['agent.quarantine'] },
+    { id:3, name:'CrowdStrike / EDR', kind:'edr', url:'https://acme.example/hooks/crowdstrike', enabled:true, events:['agent.quarantine'] },
+    { id:4, name:'Microsoft Entra ID', kind:'entra', url:'https://acme.example/hooks/entra', enabled:true, events:['agent.quarantine','agent.approve'] },
+  ],
+  deliveries: [],
+  ssoTab: 'entra',
+  sso: {
+    entra: {
+      enabled: true,
+      tenantId: 'a1b2c3d4-acme-health-tenant',
+      clientId: 'agentradar-prod-app',
+      redirectUri: 'https://agentradar.acme.health/api/auth/entra/callback',
+      domains: ['acme.health'],
+      jit: true,
+      defaultRole: 'viewer',
+      lastSync: '2026-08-07 08:40',
+    },
+    saml: {
+      enabled: false,
+      entityId: 'https://agentradar.acme.health/saml',
+      acsUrl: 'https://agentradar.acme.health/api/auth/saml/acs',
+      metadataUrl: '',
+      certificate: '',
+    },
+    mappings: [
+      { claim: 'roles', value: 'AgentRadar.CISO', role: 'ciso' },
+      { claim: 'roles', value: 'AgentRadar.Admin', role: 'platform_admin' },
+      { claim: 'roles', value: 'AgentRadar.Analyst', role: 'analyst' },
+      { claim: 'roles', value: 'AgentRadar.Auditor', role: 'auditor' },
+    ],
+  },
+  iamUsers: [
+    { name: 'Alex Rivera', email: 'ciso@acme.health', role: 'ciso', source: 'Entra ID', mfa: true, lastLogin: '2026-08-07 07:12' },
+    { name: 'Sam Chen', email: 'analyst@acme.health', role: 'analyst', source: 'Local', mfa: false, lastLogin: '2026-08-07 09:01' },
+    { name: 'Jordan Lee', email: 'auditor@acme.health', role: 'auditor', source: 'Entra ID', mfa: true, lastLogin: '2026-08-06 15:44' },
+    { name: 'Riley Park', email: 'admin@acme.health', role: 'platform_admin', source: 'Entra ID', mfa: true, lastLogin: '2026-08-07 08:22' },
+    { name: 'Taylor Kim', email: 'viewer@acme.health', role: 'viewer', source: 'JIT (Entra)', mfa: false, lastLogin: '2026-08-05 11:18' },
+  ],
+  log: null,
+};
+
+function donutChart(segments) {
+  const total = segments.reduce((s, x) => s + x.value, 0) || 1;
+  const r = 54, c = 2 * Math.PI * r;
+  let offset = 0;
+  const arcs = segments.map(seg => {
+    const len = (seg.value / total) * c;
+    const dash = `${len} ${c - len}`;
+    const el = `<circle cx="80" cy="80" r="${r}" fill="none" stroke="${seg.color}" stroke-width="16"
+      stroke-dasharray="${dash}" stroke-dashoffset="${-offset}" stroke-linecap="butt"/>`;
+    offset += len;
+    return el;
+  }).join('');
+  return `<svg class="donut-svg" viewBox="0 0 160 160">
+    <circle cx="80" cy="80" r="${r}" fill="none" stroke="rgba(16,36,44,0.06)" stroke-width="16"/>
+    <g transform="rotate(-90 80 80)">${arcs}</g>
+    <text x="80" y="76" text-anchor="middle" font-family="Bricolage Grotesque, Georgia, serif" font-size="22" font-weight="700" fill="#10242c">${total}</text>
+    <text x="80" y="94" text-anchor="middle" font-size="10" fill="#6b8490" font-family="Plus Jakarta Sans, sans-serif">agents</text>
+  </svg>`;
+}
+
+function areaChart(values, labels) {
+  const w = 520, h = 180, pad = 28;
+  const max = Math.max(...values, 1);
+  const pts = values.map((v, i) => {
+    const x = pad + (i * (w - pad * 2)) / Math.max(values.length - 1, 1);
+    const y = h - pad - ((v / max) * (h - pad * 2));
+    return [x, y];
+  });
+  const line = pts.map((p, i) => `${i ? 'L' : 'M'}${p[0]},${p[1]}`).join(' ');
+  const area = `${line} L${pts[pts.length-1][0]},${h-pad} L${pts[0][0]},${h-pad} Z`;
+  const dots = pts.map((p, i) => `<circle cx="${p[0]}" cy="${p[1]}" r="3.5" fill="#0f7a62"/><title>${labels[i]}: ${values[i]}</title>`).join('');
+  const xLabels = labels.map((l, i) => {
+    const x = pts[i][0];
+    return `<text x="${x}" y="${h - 8}" text-anchor="middle" font-size="10" fill="#6b8490" font-family="Plus Jakarta Sans, sans-serif">${l}</text>`;
+  }).join('');
+  return `<svg class="area-chart" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">
+    <defs>
+      <linearGradient id="areaFill" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#14967a" stop-opacity="0.28"/>
+        <stop offset="100%" stop-color="#14967a" stop-opacity="0.02"/>
+      </linearGradient>
+    </defs>
+    ${[0.25,0.5,0.75,1].map(t => {
+      const y = h - pad - t * (h - pad * 2);
+      return `<line x1="${pad}" y1="${y}" x2="${w-pad}" y2="${y}" stroke="rgba(16,36,44,0.06)" stroke-width="1"/>`;
+    }).join('')}
+    <path d="${area}" fill="url(#areaFill)"/>
+    <path d="${line}" fill="none" stroke="#0f7a62" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+    ${dots}${xLabels}
+  </svg>`;
+}
+
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => el.classList.remove('show'), 2600);
+}
+
+function stats() {
+  const a = state.agents;
+  return {
+    total: a.length,
+    shadow: a.filter(x=>x.shadow).length,
+    phi: a.filter(x=>x.phi).length,
+    critical: a.filter(x=>x.level==='critical').length,
+    high: a.filter(x=>x.level==='high').length,
+    medium: a.filter(x=>x.level==='medium').length,
+    low: a.filter(x=>x.level==='low').length,
+    avg: Math.round(a.reduce((s,x)=>s+x.score,0)/a.length),
+    unowned: a.filter(x=>!x.owner).length,
+    never: a.filter(x=>!x.reviewed).length,
+    noBaa: a.filter(x=>x.phi&&x.baa==='missing').length,
+  };
+}
+
+function badge(level, label) {
+  return `<span class="badge b-${level}">${label || level}</span>`;
+}
+
+function esc(s) {
+  return String(s??'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function agentTable(list) {
+  return `<div class="glass table-wrap">
+    <table>
+      <thead><tr>
+        <th>Agent</th><th>Category</th><th>Environment</th><th>Risk</th><th>Flags</th><th>Owner</th><th>Lifecycle</th>
+      </tr></thead>
+      <tbody>
+        ${list.map(a=>`<tr onclick="openAgent(${a.id})">
+          <td>
+            <div class="agent-name">${esc(a.name)}</div>
+            <div class="agent-sub">${esc(a.host||'—')}${a.model?' · '+esc(a.model):''}</div>
+          </td>
+          <td>${esc(a.cat)}</td>
+          <td>${esc(a.env)}</td>
+          <td>${badge(a.level)} <span style="margin-left:6px;font-weight:600">${a.score}</span></td>
+          <td style="white-space:nowrap">
+            ${a.shadow?badge('shadow','Shadow')+' ':''}
+            ${a.phi?badge('phi','PHI')+' ':''}
+            ${a.pii?'<span class="badge" style="background:rgba(16,36,44,.06);color:var(--ink-soft)">PII</span>':''}
+          </td>
+          <td>${a.owner?esc(a.owner):'<span class="muted">Unassigned</span>'}</td>
+          <td style="text-transform:capitalize">${esc(a.lifecycle.replace('_',' '))}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table>
+    ${!list.length?'<p class="muted" style="padding:1.25rem">No agents match the current filters.</p>':''}
+  </div>`;
+}
+
+function filtered() {
+  return state.agents.filter(a => {
+    if (state.cat && a.cat !== state.cat) return false;
+    if (state.q) {
+      const q = state.q.toLowerCase();
+      if (!(`${a.name} ${a.owner||''} ${a.fingerprint||''} ${a.external_id||''}`).toLowerCase().includes(q)) return false;
+    }
+    return true;
+  });
+}
+
+const NAV = [
+  ['Overview', [['dashboard','Dashboard'],['operations','Operations'],['coverage','Coverage Map']]],
+  ['Discovery', [['discovery','Agent Discovery'],['shadow','Shadow AI'],['phi','PHI Exposure'],['models','Model Registry']]],
+  ['Governance', [['policy','Policy Engine'],['compliance','Compliance'],['playbooks','Playbooks'],['enforcement','Enforcement']]],
+  ['Intelligence', [['risk','Risk Analytics'],['risk-weights','Risk Weights'],['ciso','CISO Report']]],
+  ['Platform', [['integrations','Integrations'],['sso','SSO & IAM']]],
+];
+
+function shell(inner) {
+  const s = stats();
+  return `<div class="shell">
+    <aside class="sidebar">
+      <div class="brand-block">
+        <h1 class="brand">Agent<span>Radar</span></h1>
+        <p class="tagline">Know every agent, model, edge, and runtime in motion.</p>
+        <div class="positioning">Your CMDB for AI agents</div>
+        <div class="tenant-chip">
+          <div class="tenant-mark">AH</div>
+          <div><strong>Acme Health</strong><span>Enterprise · HIPAA</span></div>
+        </div>
+      </div>
+      <nav class="nav">
+        ${NAV.map(([label, items]) => `
+          <div class="nav-label">${label}</div>
+          ${items.map(([id, name]) => `
+            <button class="${state.view===id?'active':''}" onclick="go('${id}')">
+              <span class="dot"></span>${name}
+            </button>
+          `).join('')}
+        `).join('')}
+      </nav>
+      <div class="user-block">
+        <div class="name">${esc(state.user.name)}</div>
+        <div class="role">${esc(state.user.role.replace('_',' '))}</div>
+        <button class="btn btn-ghost" style="margin-top:0.55rem;padding-left:0" onclick="logout()">Sign out</button>
+      </div>
+    </aside>
+    <main class="main">${inner}${drawerHtml()}</main>
+  </div>`;
+}
+
+function pageHead(title, sub, meta) {
+  return `<div class="topbar">
+    <div class="page-head">
+      <h1>${title}</h1>
+      <p>${sub}</p>
+    </div>
+    <div class="topbar-meta">${meta||''}</div>
+  </div>`;
+}
+
+function drawerHtml() {
+  const a = state.agents.find(x => x.id === state.selected);
+  if (!a) return '';
+  const tabs = ['identity','risk','compliance','ownership','evidence'];
+  return `<div class="drawer-bg" onclick="closeAgent()"></div>
+  <aside class="drawer">
+    <div style="display:flex;justify-content:space-between;gap:1rem;align-items:flex-start">
+      <div>
+        <h2>${esc(a.name)}</h2>
+        <div class="muted" style="margin-top:4px;font-size:0.8rem">Agent Passport · system of record</div>
+      </div>
+      <button class="btn btn-ghost" onclick="closeAgent()">Close</button>
+    </div>
+    <div style="display:flex;gap:6px;margin-top:14px;flex-wrap:wrap">
+      ${badge(a.level)}
+      ${badge('ok', a.confidence)}
+      ${a.shadow?badge('shadow','Shadow'):''}
+      ${a.phi?badge('phi','PHI'):''}
+      ${a.riskAccepted?badge('medium','Risk accepted'):''}
+      <span class="badge" style="background:rgba(16,36,44,.06);color:var(--ink-soft)">${esc(a.lifecycle.replace('_',' '))}</span>
+    </div>
+    <div class="tabs">
+      ${tabs.map(t=>`<button class="tab ${state.tab===t?'active':''}" onclick="setTab('${t}')">${t}</button>`).join('')}
+    </div>
+    ${state.tab==='identity'?`<div class="glass" style="padding:0.5rem 1rem">
+      <div class="detail-row"><span>Fingerprint</span><span class="mono">${esc(a.fingerprint||'—')}</span></div>
+      <div class="detail-row"><span>External ID</span><span class="mono">${esc(a.external_id||'—')}</span></div>
+      ${[['Category',a.cat],['Environment',a.env],['Hosting',a.host||'—'],['Model',a.model||'—'],['Sources',(a.sources||[]).join(', ')||'—'],['BAA',a.baa]].map(([k,v])=>`
+        <div class="detail-row"><span>${k}</span><span>${esc(v)}</span></div>`).join('')}
+    </div>`:''}
+    ${state.tab==='risk'?`<div class="glass">
+      <div style="display:flex;justify-content:space-between;align-items:baseline">
+        <span class="muted">Risk score</span>
+        <span style="font-family:var(--display);font-size:1.8rem;font-weight:700">${a.score}<span class="muted" style="font-size:0.9rem"> / 100</span></span>
+      </div>
+      <div class="bar" style="margin:0.75rem 0 1rem"><span style="width:${a.score}%"></span></div>
+      ${(a.factors||[]).map(f=>`<div class="detail-row"><span>${esc(f.c)}</span><span>+${f.w}</span></div>`).join('')||'<p class="muted">No risk factors</p>'}
+      <hr style="border:0;border-top:1px solid var(--line);margin:14px 0" />
+      <h4 style="margin:0 0 8px;font-size:0.9rem">Accept risk (with expiry)</h4>
+      <div class="form-row"><label>Reason</label>
+        <textarea id="acceptReason" rows="2" placeholder="Compensating control / business justification">${esc(a.riskAcceptReason||'')}</textarea></div>
+      <div class="form-row"><label>Expires</label>
+        <input id="acceptUntil" type="date" value="${esc(a.riskAcceptedUntil||'')}" /></div>
+      <button class="btn" onclick="acceptRisk(${a.id})">Accept risk</button>
+    </div>`:''}
+    ${state.tab==='compliance'?`<div class="glass">
+      ${FRAMEWORKS.map(fw=>{
+        const s=a.fw[fw];
+        const pct=s==='pass'?100:s==='warn'?60:25;
+        const cls=s==='fail'?'danger':s==='warn'?'high':'ok';
+        return `<div style="margin-bottom:12px">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <span style="font-size:0.85rem;font-weight:600">${fw.replace(/_/g,' ')}</span>
+            ${badge(cls,s)}
+          </div>
+          <div class="bar"><span style="width:${pct}%"></span></div>
+        </div>`;
+      }).join('')}
+    </div>`:''}
+    ${state.tab==='ownership'?`<div class="glass">
+      <div class="form-row"><label>Assigned owner</label>
+        <input id="ownerInput" value="${esc(a.owner||'')}" placeholder="name@acme.health" /></div>
+      <button class="btn btn-primary" onclick="assignOwner(${a.id})">Save owner</button>
+      <p class="muted" style="margin-top:14px;font-size:0.82rem">Last reviewed: ${a.reviewed||'Never'}</p>
+    </div>`:''}
+    ${state.tab==='evidence'?`<div class="glass">
+      <p class="muted" style="margin-top:0;font-size:0.82rem">HIPAA/SOC2-oriented evidence package for audit and board packs.</p>
+      <button class="btn btn-primary" onclick="downloadEvidence(${a.id})">Download evidence package</button>
+      <pre style="white-space:pre-wrap;font-size:11px;margin-top:14px;color:var(--ink-soft);line-height:1.45">${esc(JSON.stringify({generated_at:new Date().toISOString(),fingerprint:a.fingerprint,external_id:a.external_id,agent:a,frameworks:a.fw},null,2))}</pre>
+    </div>`:''}
+    <div class="row-actions" style="margin-top:18px">
+      ${a.shadow?`<button class="btn btn-primary" onclick="approve(${a.id})">Approve</button>`:''}
+      <button class="btn btn-danger" onclick="quarantine(${a.id})">Quarantine</button>
+      <button class="btn" onclick="setTab('evidence')">Evidence package</button>
+    </div>
+  </aside>`;
+}
+
+function viewDashboard() {
+  const s = stats();
+  const cards = [
+    ['Total agents', s.total, 'Across all discovery sources'],
+    ['Shadow AI', s.shadow, 'Unauthorized / unregistered'],
+    ['PHI agents', s.phi, 'Patient data exposure'],
+    ['Avg risk score', s.avg, `${s.high} high · ${s.critical} critical`],
+  ];
+
+  const riskSegs = [
+    { label: 'Critical', value: s.critical, color: '#c23b3b' },
+    { label: 'High', value: s.high, color: '#b7791f' },
+    { label: 'Medium', value: s.medium, color: '#d4a017' },
+    { label: 'Low', value: s.low, color: '#1f8a5b' },
+  ];
+
+  const byCat = {};
+  for (const a of state.agents) byCat[a.cat] = (byCat[a.cat] || 0) + 1;
+  const catRows = Object.entries(byCat).sort((a,b)=>b[1]-a[1]).slice(0,7);
+  const catMax = Math.max(...catRows.map(x=>x[1]), 1);
+
+  const trendVals = [28, 30, 33, 31, 35, 34, s.avg];
+  const trendLabels = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  const top = [...state.agents].sort((a,b)=>b.score-a.score).slice(0,5);
+  const coveragePct = Math.round((state.connected.size / PROVIDERS.length) * 100);
+  const firstWave = PROVIDERS.filter(p=>p.firstWave);
+  const firstWavePct = Math.round((firstWave.filter(p=>state.connected.has(p.id)).length / firstWave.length) * 100);
+  const firstWaveBlind = firstWave.filter(p=>!state.connected.has(p.id));
+
+  return `${pageHead('Dashboard', 'Your CMDB for AI agents — estate posture, first-wave coverage, and audit-ready evidence.',
+    `<span class="pill-meta">Live estate</span><span class="pill-meta">${s.total} agents</span>`)}
+
+  <div class="glass wedge-banner">
+    <div>
+      <h2>30-day land path</h2>
+      <p class="muted" style="margin:0;font-size:0.85rem;line-height:1.45">Start with Azure, Entra, CrowdStrike/Intune, GitHub, and Epic — then expand.</p>
+      <div class="pill-row">${firstWave.map(p=>`<span class="pill">${esc(p.name)}</span>`).join('')}</div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px;align-items:flex-start">
+      <button class="btn btn-primary" onclick="go('integrations')">Connect first-wave sources</button>
+      <button class="btn" onclick="go('coverage')">Open coverage map</button>
+      <button class="btn" onclick="exportEstateEvidence()">Export estate evidence</button>
+    </div>
+  </div>
+
+  <div class="grid g4">${cards.map(([l,v,h])=>`
+    <div class="glass stat">
+      <div class="stat-label">${l}</div>
+      <div class="stat-value">${v}</div>
+      <div class="stat-hint">${h}</div>
+    </div>`).join('')}
+    <div class="glass stat">
+      <div class="stat-label">First-wave coverage</div>
+      <div class="stat-value">${firstWavePct}%</div>
+      <div class="stat-hint">${firstWaveBlind.length} blind · estate ${coveragePct}%</div>
+    </div>
+  </div>
+
+  <div class="grid g2" style="margin-top:16px">
+    <div class="glass chart-card">
+      <div class="chart-head">
+        <div>
+          <h3 class="section-title" style="margin:0">Risk distribution</h3>
+          <p>Agents by risk band across the estate</p>
+        </div>
+        <span class="pill-meta">Avg ${s.avg}</span>
+      </div>
+      <div class="donut-wrap">
+        ${donutChart(riskSegs.filter(x=>x.value>0).length ? riskSegs : [{label:'None',value:1,color:'#cfd8dc'}])}
+        <div class="legend">
+          ${riskSegs.map(seg=>`<div class="legend-row">
+            <div class="legend-left"><span class="swatch" style="background:${seg.color}"></span>${seg.label}</div>
+            <strong>${seg.value}</strong>
+          </div>`).join('')}
+          <div class="legend-row" style="margin-top:6px;padding-top:8px;border-top:1px solid var(--line)">
+            <div class="legend-left">Coverage</div>
+            <strong>${coveragePct}%</strong>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="glass chart-card">
+      <div class="chart-head">
+        <div>
+          <h3 class="section-title" style="margin:0">Agents by category</h3>
+          <p>Inventory mix across canonical agent types</p>
+        </div>
+      </div>
+      <div class="hbar">
+        ${catRows.map(([cat,n])=>`<div class="hbar-row">
+          <span style="color:var(--ink-soft);text-transform:capitalize">${esc(cat.replace('_',' '))}</span>
+          <div class="hbar-track"><div class="hbar-fill" style="width:${Math.round((n/catMax)*100)}%"></div></div>
+          <strong style="text-align:right">${n}</strong>
+        </div>`).join('')}
+      </div>
+    </div>
+  </div>
+
+  <div class="grid g2" style="margin-top:16px">
+    <div class="glass chart-card">
+      <div class="chart-head">
+        <div>
+          <h3 class="section-title" style="margin:0">7-day risk trend</h3>
+          <p>Average estate risk score over the last week</p>
+        </div>
+        <span class="pill-meta">${trendVals[trendVals.length-1] >= trendVals[0] ? '▲' : '▼'} ${Math.abs(trendVals[trendVals.length-1]-trendVals[0])} pts</span>
+      </div>
+      ${areaChart(trendVals, trendLabels)}
+    </div>
+
+    <div class="glass chart-card">
+      <div class="chart-head">
+        <div>
+          <h3 class="section-title" style="margin:0">Attention required</h3>
+          <p>Highest-risk agents and open governance gaps</p>
+        </div>
+        <button class="btn" onclick="go('operations')">Open queue</button>
+      </div>
+      <div class="grid g3" style="margin-bottom:14px">
+        <div style="padding:0.75rem;border-radius:10px;background:var(--danger-soft)">
+          <div class="stat-label">Missing BAA</div>
+          <div style="font-family:var(--display);font-size:1.5rem;font-weight:700;color:var(--danger)">${s.noBaa}</div>
+        </div>
+        <div style="padding:0.75rem;border-radius:10px;background:var(--warn-soft)">
+          <div class="stat-label">Unowned</div>
+          <div style="font-family:var(--display);font-size:1.5rem;font-weight:700;color:var(--warn)">${s.unowned}</div>
+        </div>
+        <div style="padding:0.75rem;border-radius:10px;background:var(--accent-soft)">
+          <div class="stat-label">Never reviewed</div>
+          <div style="font-family:var(--display);font-size:1.5rem;font-weight:700;color:var(--accent)">${s.never}</div>
+        </div>
+      </div>
+      ${top.map(a=>`<div class="queue-item" style="cursor:pointer" onclick="openAgent(${a.id})">
+        <div>
+          <div class="agent-name">${esc(a.name)}</div>
+          <div class="agent-sub">${esc(a.cat)} · ${esc(a.env)}</div>
+        </div>
+        <div>${badge(a.level)} <strong style="margin-left:8px">${a.score}</strong></div>
+      </div>`).join('')}
+    </div>
+  </div>`;
+}
+
+function viewDiscovery() {
+  const cats = ['','cloud','saas','healthcare','ide','local','local_llm','framework','mcp','browser','ci','autonomous'];
+  const list = filtered();
+  return `${pageHead('Agent Discovery', 'Canonical inventory of every discovered AI agent across cloud, SaaS, healthcare, endpoint, and code.',
+    `<span class="pill-meta">${list.length} shown</span>`)}
+  <div class="toolbar">
+    <input style="min-width:240px;flex:1;max-width:320px" placeholder="Search by name or owner…" value="${esc(state.q)}" oninput="state.q=this.value;render()" />
+    <select style="min-width:160px" onchange="state.cat=this.value;render()">
+      ${cats.map(c=>`<option value="${c}" ${state.cat===c?'selected':''}>${c||'All categories'}</option>`).join('')}
+    </select>
+  </div>
+  ${agentTable(list)}`;
+}
+
+function viewShadow() {
+  const list = state.agents.filter(a=>a.shadow);
+  const phiShadow = list.filter(a=>a.phi).length;
+  return `${pageHead('Shadow AI', 'Unauthorized agents discovered from network, endpoint, and repository signals.',
+    `<span class="pill-meta">${list.length} open</span>`)}
+  <div class="alert ${phiShadow?'alert-danger':'alert-warn'}">
+    ${phiShadow
+      ? `HIPAA risk: ${phiShadow} shadow agent${phiShadow>1?'s':''} with PHI access. Quarantine recommended until BAA review.`
+      : 'No PHI-linked shadow agents in the current set. Continue monitoring endpoint and proxy sources.'}
+  </div>
+  ${agentTable(list)}
+  <div class="glass" style="margin-top:14px">
+    <h3 class="section-title">Quick decisions</h3>
+    ${list.map(a=>`<div class="queue-item">
+      <div>
+        <div class="agent-name">${esc(a.name)}</div>
+        <div class="agent-sub">${badge(a.level)} ${a.phi?badge('phi','PHI'):''} via ${(a.sources||[]).join(', ')}</div>
+      </div>
+      <div class="row-actions">
+        <button class="btn btn-primary" onclick="approve(${a.id})">Approve</button>
+        <button class="btn btn-danger" onclick="quarantine(${a.id})">Quarantine</button>
+      </div>
+    </div>`).join('')||'<p class="muted">Queue clear.</p>'}
+  </div>`;
+}
+
+function viewPhi() {
+  const list = state.agents.filter(a=>a.phi);
+  return `${pageHead('PHI Exposure', 'Agents touching patient data — track BAA status and HIPAA risk.',
+    `<span class="pill-meta">${list.length} PHI agents</span>`)}
+  <div class="glass table-wrap"><table>
+    <thead><tr><th>Agent</th><th>BAA</th><th>Risk</th><th>Owner</th><th>Actions</th></tr></thead>
+    <tbody>${list.map(a=>`<tr>
+      <td onclick="openAgent(${a.id})">
+        <div class="agent-name">${esc(a.name)}</div>
+        <div class="agent-sub">${esc(a.host||'')} · ${esc(a.env)}</div>
+      </td>
+      <td>${badge(a.baa==='signed'?'ok':a.baa==='pending'?'high':'danger', a.baa)}</td>
+      <td><strong>${a.score}</strong></td>
+      <td>${esc(a.owner||'—')}</td>
+      <td onclick="event.stopPropagation()">
+        <div class="row-actions">
+          <button class="btn btn-primary" onclick="setBaa(${a.id},'signed')">Signed</button>
+          <button class="btn" onclick="setBaa(${a.id},'pending')">Pending</button>
+          <button class="btn btn-danger" onclick="setBaa(${a.id},'missing')">Missing</button>
+        </div>
+      </td>
+    </tr>`).join('')}</tbody>
+  </table></div>`;
+}
+
+function viewRisk() {
+  const s = stats();
+  const byEnv = {};
+  for (const a of state.agents) {
+    byEnv[a.env] ||= {critical:0,high:0,medium:0,low:0,total:0,sum:0};
+    byEnv[a.env][a.level]++; byEnv[a.env].total++; byEnv[a.env].sum += a.score;
+  }
+  const top = [...state.agents].sort((a,b)=>b.score-a.score).slice(0,8);
+  const trend = [34,36,39,37,41,40,s.avg];
+  const maxT = Math.max(...trend, 1);
+  return `${pageHead('Risk Analytics', 'Distribution, environment heatmap, remediation priorities, and seven-day trend.',
+    `<span class="pill-meta">Avg ${s.avg}</span>`)}
+  <div class="grid g4">
+    ${['critical','high','medium','low'].map(k=>`<div class="glass stat">
+      <div class="stat-label">${k}</div>
+      <div class="stat-value">${s[k]}</div>
+      <div class="stat-hint">Agents by risk band</div>
+    </div>`).join('')}
+  </div>
+  <div class="grid g2" style="margin-top:16px">
+    <div class="glass">
+      <h3 class="section-title">Risk by environment</h3>
+      <div class="heatmap">${Object.entries(byEnv).map(([env,v])=>{
+        const avg=Math.round(v.sum/v.total);
+        return `<div class="heat-cell" style="background:linear-gradient(180deg,#fff,rgba(194,59,59,${Math.min(0.12,avg/200)}))">
+          <strong style="font-size:0.88rem">${esc(env)}</strong>
+          <div class="muted" style="font-size:0.75rem;margin:4px 0">Avg score ${avg}</div>
+          <div style="font-size:0.72rem;color:var(--ink-soft)">C${v.critical} · H${v.high} · M${v.medium} · L${v.low}</div>
+        </div>`;
+      }).join('')}</div>
+    </div>
+    <div class="glass">
+      <h3 class="section-title">7-day estate trend</h3>
+      <div style="display:flex;align-items:flex-end;gap:8px;height:150px;padding-top:8px">
+        ${trend.map((t,i)=>`<div style="flex:1;text-align:center;height:100%;display:flex;flex-direction:column;justify-content:flex-end">
+          <div style="height:${(t/maxT)*100}%;min-height:10px;background:linear-gradient(180deg,var(--accent-bright),var(--accent));border-radius:8px 8px 4px 4px" title="${t}"></div>
+          <div class="muted" style="font-size:10px;margin-top:6px;font-weight:600">D${i+1}</div>
+        </div>`).join('')}
+      </div>
+    </div>
+  </div>
+  <div class="glass" style="margin-top:16px">
+    <h3 class="section-title">Top risk agents</h3>
+    ${top.map(a=>`<div class="queue-item" style="cursor:pointer" onclick="openAgent(${a.id})">
+      <div><div class="agent-name">${esc(a.name)}</div><div class="agent-sub">${esc(a.env)} · ${esc(a.cat)}</div></div>
+      <div>${badge(a.level)} <strong style="margin-left:8px">${a.score}</strong></div>
+    </div>`).join('')}
+  </div>`;
+}
+
+function viewPolicy() {
+  return `${pageHead('Policy Engine', 'Built-in governance policies with violation counts and one-click remediation.')}
+  <div class="toolbar"><button class="btn btn-primary" onclick="remediateAll()">Auto-remediate all</button></div>
+  <div class="grid g2">${POLICIES.map(p=>{
+    const hits=state.agents.filter(p.match);
+    return `<div class="glass">
+      <div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start">
+        <h3 class="section-title" style="margin-bottom:0.4rem">${p.name}</h3>
+        ${p.auto?badge('ok','Auto'):''}
+      </div>
+      <p class="muted" style="margin:0 0 12px;font-size:0.88rem;line-height:1.45">${p.desc}</p>
+      <div style="font-size:0.82rem;margin-bottom:12px">Open violations: <strong>${hits.length}</strong></div>
+      <div class="row-actions">
+        <button class="btn" onclick="toast('${esc(p.name)}: ${hits.length} violation(s)')">Run</button>
+        <button class="btn btn-primary" onclick="runPolicy('${p.key}',true)">Remediate</button>
+      </div>
+      ${hits.length?`<div class="muted" style="margin-top:12px;font-size:0.75rem;line-height:1.6">${hits.slice(0,3).map(a=>esc(a.name)).join('<br>')}</div>`:''}
+    </div>`;
+  }).join('')}</div>`;
+}
+
+function viewOps() {
+  const shadow=state.agents.filter(a=>a.shadow&&a.lifecycle!=='approved'&&a.lifecycle!=='quarantined');
+  const baa=state.agents.filter(a=>a.phi&&a.baa==='missing');
+  const unowned=state.agents.filter(a=>!a.owner);
+  const never=state.agents.filter(a=>!a.reviewed);
+  const high=state.agents.filter(a=>a.level==='high'||a.level==='critical');
+  const q=(title,items,actions)=>`<div class="glass">
+    <h3 class="section-title">${title} <span class="muted" style="font-family:var(--font);font-size:0.85rem;font-weight:500">(${items.length})</span></h3>
+    ${items.slice(0,7).map(a=>`<div class="queue-item">
+      <button class="btn btn-ghost" style="text-align:left;padding:0;font-weight:600;color:var(--ink)" onclick="openAgent(${a.id})">${esc(a.name)}</button>
+      ${actions?actions(a):`<span class="muted" style="font-size:0.75rem">${a.score}</span>`}
+    </div>`).join('')||'<p class="muted" style="margin:0">Clear</p>'}
+  </div>`;
+  return `${pageHead('Operations Workbench', 'Daily SecOps queue for shadow decisions, BAA gaps, ownership, and high risk.')}
+  <div class="grid g2">
+    ${q('Shadow AI',shadow,a=>`<div class="row-actions"><button class="btn btn-primary" onclick="approve(${a.id})">Approve</button><button class="btn btn-danger" onclick="quarantine(${a.id})">Quarantine</button></div>`)}
+    ${q('PHI missing BAA',baa)}
+    ${q('Unowned agents',unowned)}
+    ${q('Never reviewed',never)}
+    ${q('High / critical risk',high)}
+    <div class="glass">
+      <h3 class="section-title">Discovery feed</h3>
+      <div style="font-size:0.82rem;color:var(--ink-soft);line-height:1.75">
+        <div><strong style="color:var(--ink)">Confirmed</strong> — AutoGen ops swarm</div>
+        <div><strong style="color:var(--ink)">Risk change</strong> — LM Studio CLIN-PC-08 → high</div>
+        <div><strong style="color:var(--ink)">Shadow</strong> — claude.ai via Zscaler</div>
+        <div><strong style="color:var(--ink)">BAA pending</strong> — Cerner CareAware AI</div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function viewCompliance() {
+  const counts={};
+  for (const fw of FRAMEWORKS) counts[fw]={pass:0,fail:0,warn:0};
+  for (const a of state.agents) for (const fw of FRAMEWORKS) counts[fw][a.fw[fw]]++;
+  return `${pageHead('Compliance', 'Framework mapping across HIPAA, SOC 2, ISO 27001, GDPR, NIST AI RMF, EU AI Act, HITRUST, and FDA SaMD.')}
+  <div class="grid g2">${FRAMEWORKS.map(fw=>{
+    const v=counts[fw]; const total=state.agents.length; const pct=Math.round((v.pass/total)*100);
+    return `<div class="glass">
+      <div style="display:flex;justify-content:space-between;align-items:baseline">
+        <h3 class="section-title" style="margin:0">${fw.replace(/_/g,' ')}</h3>
+        <strong style="font-family:var(--display);font-size:1.35rem">${pct}%</strong>
+      </div>
+      <div class="bar" style="margin:12px 0"><span style="width:${pct}%"></span></div>
+      <div class="muted" style="font-size:0.8rem">Pass ${v.pass} · Fail ${v.fail} · Warn ${v.warn}</div>
+    </div>`;
+  }).join('')}</div>`;
+}
+
+function viewPlaybooks() {
+  return `${pageHead('Playbooks', 'Executable response workflows with step logs and run history.')}
+  <div class="grid g2">${PLAYBOOKS.map((p,i)=>`<div class="glass">
+    <h3 class="section-title">${p.name}</h3>
+    <p class="muted" style="margin:0 0 12px;font-size:0.88rem;line-height:1.45">${p.desc}</p>
+    <ol style="padding-left:18px;font-size:0.82rem;color:var(--ink-soft);margin:0 0 14px;line-height:1.6">
+      ${p.steps.map(s=>`<li>${s}</li>`).join('')}
+    </ol>
+    <button class="btn btn-primary" onclick="runPlaybook(${i})">Run now</button>
+  </div>`).join('')}</div>
+  ${state.log?`<div class="glass" style="margin-top:16px">
+    <h3 class="section-title">Execution log</h3>
+    <pre style="white-space:pre-wrap;font-size:12px;color:var(--ink-soft);margin:0">${esc(JSON.stringify(state.log,null,2))}</pre>
+  </div>`:''}`;
+}
+
+function viewCiso() {
+  const s=stats();
+  const posture=s.critical>0||s.shadow>5?'Critical':s.high>3||s.noBaa>0?'High':s.avg>=30?'Medium':'Low';
+  const recs=[];
+  if(s.shadow) recs.push('Quarantine or approve all shadow AI agents this week.');
+  if(s.noBaa) recs.push('Execute BAAs for every PHI-touching agent before the next audit.');
+  if(s.unowned) recs.push('Assign owners to unowned agents via the Operations workbench.');
+  if(s.never) recs.push('Complete overdue agent reviews exceeding 90 days.');
+  if(!recs.length) recs.push('Maintain current posture and expand connector coverage.');
+  return `${pageHead('CISO Report', 'Executive-ready AI risk posture — board PDF plus HIPAA/SOC2 estate evidence.',
+    `<span class="pill-meta">Your CMDB for AI agents</span>`)}
+  <div class="toolbar">
+    <button class="btn btn-primary" onclick="window.print()">Export PDF</button>
+    <button class="btn" onclick="exportEstateEvidence()">Export estate evidence</button>
+    <button class="btn" onclick="window.print()">Print</button>
+  </div>
+  <div class="grid g3">
+    <div class="glass stat"><div class="stat-label">Overall posture</div><div class="stat-value">${posture}</div><div class="stat-hint">Estate risk classification</div></div>
+    <div class="glass stat"><div class="stat-label">Total agents</div><div class="stat-value">${s.total}</div><div class="stat-hint">Discovered inventory</div></div>
+    <div class="glass stat"><div class="stat-label">Shadow / PHI / High</div><div class="stat-value" style="font-size:1.45rem">${s.shadow} / ${s.phi} / ${s.high}</div><div class="stat-hint">Key exposure counts</div></div>
+  </div>
+  <div class="grid g2" style="margin-top:16px">
+    <div class="glass">
+      <h3 class="section-title">Key risks</h3>
+      ${[['Shadow AI agents',s.shadow],['PHI agents missing BAA',s.noBaa],['Critical risk agents',s.critical],['Unowned agents',s.unowned]].map(([l,c])=>`
+        <div class="detail-row"><span>${l}</span><span>${c}</span></div>`).join('')}
+    </div>
+    <div class="glass">
+      <h3 class="section-title">Recommendations</h3>
+      <ol style="margin:0;padding-left:18px;color:var(--ink-soft);font-size:0.9rem;line-height:1.65">
+        ${recs.map(r=>`<li>${r}</li>`).join('')}
+      </ol>
+    </div>
+  </div>`;
+}
+
+function viewModels() {
+  return `${pageHead('Model Registry', 'Foundation model inventory with BAA availability, SOC 2, and HIPAA capability.')}
+  <div class="grid g3">${MODELS.map(m=>{
+    const count=state.agents.filter(a=>a.model===m.name).length;
+    return `<div class="glass">
+      <h3 class="section-title" style="font-size:1.2rem">${m.name}</h3>
+      <p class="muted" style="margin:0 0 12px;font-size:0.85rem">${m.vendor} · ${m.host.replace('_',' ')}</p>
+      <p style="margin:0 0 12px;font-size:0.88rem">Agents using model: <strong>${count}</strong></p>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        ${m.baa?badge('ok','BAA'):''}
+        ${m.soc2?badge('ok','SOC2'):''}
+        ${m.hipaa?badge('phi','HIPAA'):''}
+        ${m.host==='local'?badge('high','Local'):''}
+      </div>
+    </div>`;
+  }).join('')}</div>`;
+}
+
+function viewCoverage() {
+  const sources=PROVIDERS.map(p=>({...p,connected:state.connected.has(p.id)}));
+  const pct=Math.round((sources.filter(s=>s.connected).length/sources.length)*100);
+  const firstWave=sources.filter(s=>s.firstWave);
+  const rest=sources.filter(s=>!s.firstWave);
+  const fwPct=Math.round((firstWave.filter(s=>s.connected).length/firstWave.length)*100);
+  const cell=s=>`<div class="heat-cell" style="border-color:${s.connected?'rgba(31,138,91,.28)':'rgba(194,59,59,.22)'};background:${s.connected?'rgba(31,138,91,.04)':'rgba(194,59,59,.03)'}">
+    <strong style="font-size:0.84rem">${esc(s.name)}</strong>
+    <div class="muted" style="font-size:0.7rem;margin-top:3px;text-transform:uppercase;letter-spacing:.04em">${s.group}</div>
+    <div style="margin-top:10px;display:flex;gap:4px;flex-wrap:wrap">
+      ${s.connected?badge('ok','Connected'):badge('danger','Blind spot')}
+      ${s.firstWave?`<span class="badge badge-wave">First-wave</span>`:''}
+    </div>
+    ${!s.connected?`<button class="btn" style="margin-top:10px;width:100%" onclick="connect('${s.id}')">Connect</button>`:''}
+  </div>`;
+  return `${pageHead('Coverage Map', 'Connected sources vs blind spots — prioritize first-wave connectors for the 30-day land path.',
+    `<span class="pill-meta">${pct}% covered</span><span class="pill-meta">First-wave ${fwPct}%</span>`)}
+  <div class="grid g3" style="margin-bottom:16px">
+    <div class="glass"><div class="stat-label">Estate coverage</div><div class="stat-value">${pct}%</div>
+      <div class="bar"><span style="width:${pct}%"></span></div>
+      <p class="muted" style="margin:10px 0 0;font-size:0.85rem">${sources.filter(s=>s.connected).length} connected · ${sources.filter(s=>!s.connected).length} blind</p></div>
+    <div class="glass"><div class="stat-label">First-wave coverage</div><div class="stat-value">${fwPct}%</div>
+      <div class="bar"><span style="width:${fwPct}%"></span></div>
+      <p class="muted" style="margin:10px 0 0;font-size:0.85rem">${firstWave.filter(s=>!s.connected).length} first-wave blind spots</p></div>
+    <div class="glass"><h3 class="section-title" style="margin-top:0">Next actions</h3>
+      <p class="muted" style="margin:0 0 10px;font-size:0.85rem">Connect blind spots to close discovery gaps.</p>
+      <button class="btn btn-primary" onclick="go('integrations')">Connect sources</button></div>
+  </div>
+  <h3 class="section-title">First-wave</h3>
+  <div class="heatmap" style="margin-bottom:20px">${firstWave.map(cell).join('')}</div>
+  <h3 class="section-title">Expand later</h3>
+  <div class="heatmap">${rest.map(cell).join('')}</div>`;
+}
+
+function viewIntegrations() {
+  const groups = [...new Set(PROVIDERS.map(p=>p.group))];
+  const selected = PROVIDERS.find(p=>p.id===state.integProvider) || PROVIDERS[0];
+  const groupProviders = PROVIDERS.filter(p=>p.group===state.integGroup);
+  const firstWave = PROVIDERS.filter(p=>p.firstWave);
+  const configured = [...state.connected].map(id => {
+    const p = PROVIDERS.find(x=>x.id===id);
+    const meta = state.connectors[id] || { status:'active', agents:0, lastTested:'—', lastScanned:'—', name:p.name, mode: p.liveCapable ? 'live' : 'demo', firstWave: !!p.firstWave };
+    return { id, p, meta };
+  });
+  const totalFound = configured.reduce((s,c)=>s+(c.meta.agents||0), 0);
+  const blind = PROVIDERS.length - state.connected.size;
+  const coveragePct = Math.round((state.connected.size / PROVIDERS.length) * 100);
+  const mode = state.integMode || (selected.liveCapable ? 'live' : 'demo');
+
+  return `${pageHead('Integrations', 'First-wave wedge first — with clear demo vs live labeling.',
+    `<span class="pill-meta">${state.connected.size} connected</span><span class="pill-meta">${coveragePct}% coverage</span>`)}
+
+  <div class="glass" style="margin-bottom:16px">
+    <h3 class="section-title" style="margin-top:0">First-wave connectors</h3>
+    <p class="muted" style="margin:0;font-size:0.85rem">Start here: Azure, Entra SSO, CrowdStrike/Intune, GitHub, Epic — then expand.</p>
+    <div class="pill-row">${firstWave.map(p=>`
+      <button class="pill" style="cursor:pointer" onclick="state.integGroup='${p.group}';state.integProvider='${p.id}';state.integMode='${p.liveCapable?'live':'demo'}';render()">
+        ${esc(p.name)}${p.liveCapable?' · live-capable':' · demo'}
+      </button>`).join('')}</div>
+    <div style="margin-top:12px"><button class="btn" onclick="go('coverage')">View coverage map</button></div>
+  </div>
+
+  <div class="integ-hero">
+    <div class="glass scan-bar" style="margin:0;height:100%">
+      <span class="label">Scan</span>
+      ${['cloud','saas','healthcare','edr','siem','network','git'].map(g=>`
+        <button class="btn" onclick="scanCategory('${g}')">Scan ${GROUP_LABELS[g]||g}</button>
+      `).join('')}
+      <button class="btn btn-primary" onclick="scanAll()">Scan all sources</button>
+    </div>
+    <div class="integ-kpi">
+      <div class="glass"><div class="stat-label">Connected</div><div class="stat-value" style="font-size:1.6rem">${state.connected.size}</div></div>
+      <div class="glass"><div class="stat-label">Blind spots</div><div class="stat-value" style="font-size:1.6rem">${blind}</div></div>
+      <div class="glass"><div class="stat-label">Agents found</div><div class="stat-value" style="font-size:1.6rem">${totalFound}</div></div>
+    </div>
+  </div>
+
+  <div class="grid g2">
+    <div class="glass">
+      <div class="chart-head">
+        <div>
+          <h3 class="section-title" style="margin:0">Add connector</h3>
+          <p style="margin:0.25rem 0 0;font-size:0.8rem;color:var(--muted)">Select a provider, choose demo or live mode, then save and test.</p>
+        </div>
+      </div>
+      <div class="wizard-steps">
+        <span class="wizard-step on">1 · Provider</span>
+        <span class="wizard-step on">2 · Credentials</span>
+        <span class="wizard-step">3 · Test & scan</span>
+      </div>
+      <div class="group-tabs">
+        ${groups.map(g=>`<button class="group-tab ${state.integGroup===g?'active':''}" onclick="setIntegGroup('${g}')">${GROUP_LABELS[g]||g}</button>`).join('')}
+      </div>
+      <div class="provider-grid" style="margin-bottom:1rem">
+        ${groupProviders.map(p=>`
+          <button type="button" class="provider-tile ${state.integProvider===p.id?'selected':''} ${state.connected.has(p.id)?'connected':''}" onclick="setIntegProvider('${p.id}')">
+            <div class="provider-ico">${p.abbr}</div>
+            <strong>${esc(p.name)}</strong>
+            <span>${state.connected.has(p.id)?'Connected':'Available'}${p.firstWave?' · ★':''}${p.liveCapable?' · live':' · demo'}${p.hipaa?' · HIPAA':''}</span>
+          </button>
+        `).join('')}
+      </div>
+      <div class="form-row"><label>Connector name</label>
+        <input id="cname" placeholder="${esc(selected.name)} — Production" value="${esc((state.connectors[selected.id]?.name)||'')}" />
+      </div>
+      <div class="form-row"><label>Mode</label>
+        <select id="cmode" onchange="state.integMode=this.value">
+          <option value="demo" ${mode==='demo'?'selected':''}>Demo / simulated scanner</option>
+          <option value="live" ${mode==='live'?'selected':''} ${selected.liveCapable?'':'disabled'}>Live API</option>
+        </select>
+      </div>
+      ${(selected.fields||[]).map(f=>`
+        <div class="form-row">
+          <label>${esc(f)}</label>
+          <input type="${/secret|password|token|key/i.test(f)?'password':'text'}" placeholder="Enter ${esc(f)}" autocomplete="off" />
+        </div>
+      `).join('')}
+      ${selected.hipaa?`<div class="hipaa-note">Healthcare connector: ensure a Business Associate Agreement (BAA) is signed before scanning production PHI systems.</div>`:''}
+      <div class="row-actions">
+        <button class="btn btn-primary" onclick="addConnector()">Save connector</button>
+        <button class="btn" onclick="testConnector('${selected.id}')">Test connection</button>
+        <button class="btn" onclick="scanConnector('${selected.id}')">Run scan</button>
+      </div>
+    </div>
+
+    <div class="glass" style="padding:0;overflow:hidden">
+      <div style="padding:1.15rem 1.25rem 0.85rem;border-bottom:1px solid var(--line)">
+        <h3 class="section-title" style="margin:0">Configured connectors</h3>
+        <p class="muted" style="margin:0.3rem 0 0;font-size:0.8rem">Demo vs live badges · first-wave markers · last scan.</p>
+      </div>
+      <div class="table-wrap connector-table">
+        <table>
+          <thead>
+            <tr>
+              <th>Connector</th>
+              <th>Mode</th>
+              <th>Status</th>
+              <th>Found</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            ${configured.map(({id,p,meta})=>`<tr>
+              <td>
+                <div style="display:flex;align-items:center;gap:0.65rem">
+                  <div class="provider-ico" style="margin:0;width:30px;height:30px;font-size:0.62rem">${p.abbr}</div>
+                  <div>
+                    <div class="agent-name">${esc(meta.name||p.name)} ${p.firstWave||meta.firstWave?'<span class="badge badge-wave">First-wave</span>':''}</div>
+                    <div class="agent-sub">${esc(p.name)} · ${GROUP_LABELS[p.group]||p.group}</div>
+                  </div>
+                </div>
+              </td>
+              <td><span class="badge ${(meta.mode||'demo')==='live'?'badge-live':'badge-demo'}">${(meta.mode||'demo')==='live'?'Live':'Demo'}</span></td>
+              <td><span class="status-dot ${meta.status==='error'?'error':''}">${meta.status==='error'?'Error':'Active'}</span></td>
+              <td><strong>${meta.agents||0}</strong></td>
+              <td>
+                <div class="row-actions">
+                  <button class="btn" onclick="testConnector('${id}')">Test</button>
+                  <button class="btn btn-primary" onclick="scanConnector('${id}')">Scan</button>
+                  <button class="btn btn-danger" onclick="removeConnector('${id}')">Remove</button>
+                </div>
+              </td>
+            </tr>`).join('')||`<tr><td colspan="5" class="muted" style="padding:1.5rem">No connectors configured yet.</td></tr>`}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>`;
+}
+
+function viewEnforcement() {
+  const kinds = [
+    { id:'servicenow', label:'ServiceNow' },
+    { id:'zscaler', label:'Zscaler' },
+    { id:'edr', label:'CrowdStrike / EDR' },
+    { id:'entra', label:'Microsoft Entra' },
+    { id:'generic', label:'Generic webhook' },
+  ];
+  return `${pageHead('Enforcement webhooks', 'Quarantine/approve fan-out to ServiceNow, Zscaler, EDR, and Entra with provider-specific hints.',
+    `<span class="pill-meta">${state.webhooks.length} webhooks</span><span class="pill-meta">${state.deliveries.length} deliveries</span>`)}
+  <div class="grid g2">
+    <div class="glass">
+      <h3 class="section-title" style="margin-top:0">Add webhook</h3>
+      <div class="form-row"><label>Name</label><input id="whName" placeholder="ServiceNow ITSM" /></div>
+      <div class="form-row"><label>Kind</label>
+        <select id="whKind">${kinds.map(k=>`<option value="${k.id}">${k.label}</option>`).join('')}</select></div>
+      <div class="form-row"><label>URL</label><input id="whUrl" placeholder="https://…" /></div>
+      <button class="btn btn-primary" onclick="saveWebhook()">Save webhook</button>
+    </div>
+    <div class="glass">
+      <h3 class="section-title" style="margin-top:0">Configured webhooks</h3>
+      ${state.webhooks.map(w=>`<div class="queue-item">
+        <div>
+          <div class="agent-name">${esc(w.name)}</div>
+          <div class="agent-sub">${esc(w.kind)} · ${(w.events||[]).join(', ')}</div>
+          <div class="mono" style="margin-top:4px">${esc(w.url)}</div>
+        </div>
+        <button class="btn btn-danger" onclick="removeWebhook(${w.id})">Delete</button>
+      </div>`).join('')||'<p class="muted">No webhooks yet.</p>'}
+    </div>
+  </div>
+  <div class="glass" style="margin-top:16px;padding:0;overflow:hidden">
+    <div style="padding:1rem 1.15rem;border-bottom:1px solid var(--line)">
+      <h3 class="section-title" style="margin:0">Recent deliveries</h3>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>When</th><th>Event</th><th>Webhook</th><th>Status</th><th>Hint</th></tr></thead>
+        <tbody>
+          ${state.deliveries.slice(0,20).map(d=>`<tr>
+            <td class="muted" style="font-size:0.78rem">${esc(d.at)}</td>
+            <td>${esc(d.event)}</td>
+            <td>${esc(d.webhook)}</td>
+            <td>${badge(d.status==='simulated'||d.status==='delivered'?'ok':'high', d.status)}</td>
+            <td class="muted" style="font-size:0.78rem">${esc(d.hint||'—')}</td>
+          </tr>`).join('')||`<tr><td colspan="5" class="muted" style="padding:1.25rem">Approve or quarantine an agent to generate deliveries.</td></tr>`}
+        </tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
+function viewRiskWeights() {
+  const labels = {
+    phi:'PHI access', pii:'PII access', shadow:'Shadow AI',
+    compliance_per_fail:'Per compliance fail', compliance_cap:'Compliance cap',
+    no_owner:'No owner', never_reviewed:'Never reviewed',
+  };
+  return `${pageHead('Risk weight settings', 'Tune the scoring formula for your tenant. Risk acceptance with expiry lives on each Agent Passport.',
+    `<span class="pill-meta">Tenant weights</span>`)}
+  <div class="glass" style="max-width:560px">
+    ${Object.keys(labels).map(k=>`
+      <div class="form-row"><label>${labels[k]} (${k})</label>
+        <input type="number" id="rw_${k}" value="${state.riskWeights[k]}" /></div>`).join('')}
+    <div class="row-actions">
+      <button class="btn btn-primary" onclick="saveRiskWeights()">Save weights</button>
+      <button class="btn" onclick="resetRiskWeights()">Reset defaults</button>
+    </div>
+  </div>`;
+}
+
+function viewSsoIam() {
+  const entra = state.sso.entra;
+  const saml = state.sso.saml;
+  const tab = state.ssoTab;
+  const roles = ['platform_admin','ciso','analyst','auditor','viewer'];
+
+  return `${pageHead('SSO & IAM', 'Enterprise identity: Microsoft Entra OIDC, SAML, role mapping, and user lifecycle.',
+    `<span class="pill-meta">${entra.enabled?'Entra active':'SSO off'}</span><span class="pill-meta">${state.iamUsers.length} users</span>`)}
+
+  <div class="grid g3" style="margin-bottom:16px">
+    <div class="glass stat">
+      <div class="stat-label">Identity providers</div>
+      <div class="stat-value" style="font-size:1.6rem">${(entra.enabled?1:0)+(saml.enabled?1:0)}</div>
+      <div class="stat-hint">Configured & enabled</div>
+    </div>
+    <div class="glass stat">
+      <div class="stat-label">Directory users</div>
+      <div class="stat-value" style="font-size:1.6rem">${state.iamUsers.length}</div>
+      <div class="stat-hint">${state.iamUsers.filter(u=>u.source.includes('Entra')).length} from Entra / JIT</div>
+    </div>
+    <div class="glass stat">
+      <div class="stat-label">MFA enrolled</div>
+      <div class="stat-value" style="font-size:1.6rem">${state.iamUsers.filter(u=>u.mfa).length}</div>
+      <div class="stat-hint">Required for CISO & platform admin</div>
+    </div>
+  </div>
+
+  <div class="grid g2">
+    <div>
+      <div class="sso-provider ${entra.enabled?'active':''}">
+        <div class="sso-ico ms">MS</div>
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;justify-content:space-between;gap:0.75rem;align-items:center">
+            <div>
+              <strong style="font-size:0.95rem">Microsoft Entra ID (OIDC)</strong>
+              <div class="muted" style="font-size:0.78rem;margin-top:2px">Primary enterprise SSO · OpenID Connect</div>
+            </div>
+            <button class="toggle ${entra.enabled?'on':''}" title="Toggle Entra" onclick="toggleSso('entra')"></button>
+          </div>
+          <div class="muted" style="font-size:0.75rem;margin-top:0.65rem">Last sync ${esc(entra.lastSync)}</div>
+        </div>
+      </div>
+      <div class="sso-provider ${saml.enabled?'active':''}">
+        <div class="sso-ico saml">SAML</div>
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;justify-content:space-between;gap:0.75rem;align-items:center">
+            <div>
+              <strong style="font-size:0.95rem">SAML 2.0</strong>
+              <div class="muted" style="font-size:0.78rem;margin-top:2px">Okta, Ping, ADFS, and other IdPs</div>
+            </div>
+            <button class="toggle ${saml.enabled?'on':''}" title="Toggle SAML" onclick="toggleSso('saml')"></button>
+          </div>
+        </div>
+      </div>
+
+      <div class="glass" style="margin-top:0.75rem">
+        <div class="tabs" style="margin-top:0">
+          <button class="tab ${tab==='entra'?'active':''}" onclick="setSsoTab('entra')">Entra config</button>
+          <button class="tab ${tab==='saml'?'active':''}" onclick="setSsoTab('saml')">SAML config</button>
+          <button class="tab ${tab==='roles'?'active':''}" onclick="setSsoTab('roles')">Role mapping</button>
+          <button class="tab ${tab==='users'?'active':''}" onclick="setSsoTab('users')">Users</button>
+        </div>
+
+        ${tab==='entra'?`
+          <div class="form-row"><label>Directory (tenant) ID</label>
+            <input id="entraTenant" value="${esc(entra.tenantId)}" /></div>
+          <div class="form-row"><label>Application (client) ID</label>
+            <input id="entraClient" value="${esc(entra.clientId)}" /></div>
+          <div class="form-row"><label>Client secret</label>
+            <input type="password" value="••••••••••••••••" readonly /></div>
+          <div class="form-row"><label>Redirect URI</label>
+            <div class="code-box">${esc(entra.redirectUri)}</div></div>
+          <div class="form-row"><label>Allowed email domains</label>
+            <input id="entraDomains" value="${esc(entra.domains.join(', '))}" placeholder="acme.health" /></div>
+          <div class="form-row">
+            <label style="display:flex;align-items:center;gap:0.55rem;cursor:pointer">
+              <input type="checkbox" id="entraJit" ${entra.jit?'checked':''} style="width:auto" />
+              JIT provision unknown users on first SSO login
+            </label>
+          </div>
+          <div class="form-row"><label>Default JIT role</label>
+            <select id="entraRole">${roles.map(r=>`<option value="${r}" ${entra.defaultRole===r?'selected':''}>${r}</option>`).join('')}</select>
+          </div>
+          <div class="row-actions">
+            <button class="btn btn-primary" onclick="saveEntra()">Save Entra settings</button>
+            <button class="btn" onclick="testEntra()">Test SSO login</button>
+          </div>
+        `:''}
+
+        ${tab==='saml'?`
+          <div class="form-row"><label>Entity ID (SP)</label>
+            <div class="code-box">${esc(saml.entityId)}</div></div>
+          <div class="form-row"><label>ACS URL</label>
+            <div class="code-box">${esc(saml.acsUrl)}</div></div>
+          <div class="form-row"><label>IdP metadata URL</label>
+            <input id="samlMeta" value="${esc(saml.metadataUrl)}" placeholder="https://idp.example.com/metadata" /></div>
+          <div class="form-row"><label>IdP signing certificate (PEM)</label>
+            <textarea id="samlCert" rows="4" placeholder="-----BEGIN CERTIFICATE-----">${esc(saml.certificate)}</textarea></div>
+          <div class="row-actions">
+            <button class="btn btn-primary" onclick="saveSaml()">Save SAML settings</button>
+            <button class="btn" onclick="toast('SAML metadata validated (prototype)')">Validate metadata</button>
+          </div>
+        `:''}
+
+        ${tab==='roles'?`
+          <p class="muted" style="margin:0 0 12px;font-size:0.85rem;line-height:1.45">
+            Map IdP group or app-role claims to AgentRadar RBAC roles. Server-authoritative — never trusted from the client alone.
+          </p>
+          <div class="table-wrap" style="border:1px solid var(--line);border-radius:10px;overflow:hidden">
+            <table>
+              <thead><tr><th>Claim</th><th>Value</th><th>AgentRadar role</th><th></th></tr></thead>
+              <tbody>
+                ${state.sso.mappings.map((m,i)=>`<tr>
+                  <td><code style="font-size:0.78rem">${esc(m.claim)}</code></td>
+                  <td>${esc(m.value)}</td>
+                  <td><span class="role-chip">${esc(m.role.replace('_',' '))}</span></td>
+                  <td><button class="btn btn-ghost" onclick="removeMapping(${i})">Remove</button></td>
+                </tr>`).join('')}
+              </tbody>
+            </table>
+          </div>
+          <div class="grid g3" style="margin-top:12px;gap:0.55rem">
+            <input id="mapClaim" placeholder="Claim (e.g. roles)" value="roles" />
+            <input id="mapValue" placeholder="Value (e.g. AgentRadar.Analyst)" />
+            <select id="mapRole">${roles.map(r=>`<option value="${r}">${r}</option>`).join('')}</select>
+          </div>
+          <button class="btn btn-primary" style="margin-top:10px" onclick="addMapping()">Add mapping</button>
+        `:''}
+
+        ${tab==='users'?`
+          <div class="table-wrap" style="border:1px solid var(--line);border-radius:10px;overflow:hidden">
+            <table>
+              <thead><tr><th>User</th><th>Role</th><th>Source</th><th>MFA</th><th>Last login</th><th></th></tr></thead>
+              <tbody>
+                ${state.iamUsers.map((u,i)=>`<tr>
+                  <td>
+                    <div class="agent-name">${esc(u.name)}</div>
+                    <div class="agent-sub">${esc(u.email)}</div>
+                  </td>
+                  <td>
+                    <select onchange="changeUserRole(${i}, this.value)" style="min-width:130px">
+                      ${roles.map(r=>`<option value="${r}" ${u.role===r?'selected':''}>${r}</option>`).join('')}
+                    </select>
+                  </td>
+                  <td class="muted" style="font-size:0.78rem">${esc(u.source)}</td>
+                  <td>${u.mfa?badge('ok','On'):badge('medium','Off')}</td>
+                  <td class="muted" style="font-size:0.75rem">${esc(u.lastLogin)}</td>
+                  <td><button class="btn btn-ghost" onclick="revokeUser(${i})">Revoke</button></td>
+                </tr>`).join('')}
+              </tbody>
+            </table>
+          </div>
+        `:''}
+      </div>
+    </div>
+
+    <div>
+      <div class="glass">
+        <h3 class="section-title">RBAC model</h3>
+        <p class="muted" style="margin:0 0 12px;font-size:0.85rem;line-height:1.45">Five roles enforced server-side on every API mutation.</p>
+        ${[
+          ['platform_admin','Manage connectors, SSO, users, and platform config'],
+          ['ciso','Executive posture, reports, policy, and quarantine authority'],
+          ['analyst','Investigate agents, run playbooks, remediate violations'],
+          ['auditor','Read-only evidence, audit log, and compliance exports'],
+          ['viewer','Read-only dashboard and inventory access'],
+        ].map(([r,d])=>`<div class="queue-item">
+          <div>
+            <span class="role-chip">${r.replace('_',' ')}</span>
+            <div class="muted" style="font-size:0.78rem;margin-top:4px;line-height:1.4">${d}</div>
+          </div>
+        </div>`).join('')}
+      </div>
+
+      <div class="glass" style="margin-top:1rem">
+        <h3 class="section-title">Security controls</h3>
+        <div class="detail-row"><span>JWT session</span><span>8h · httpOnly cookie</span></div>
+        <div class="detail-row"><span>CSRF</span><span>Double-submit token</span></div>
+        <div class="detail-row"><span>MFA gate</span><span>CISO + platform admin</span></div>
+        <div class="detail-row"><span>JIT default</span><span>${esc(entra.defaultRole)}</span></div>
+        <div class="detail-row"><span>Domain allowlist</span><span>${esc(entra.domains.join(', '))}</span></div>
+        <div class="detail-row"><span>Audit</span><span>Immutable admin_audit_log</span></div>
+      </div>
+
+      <div class="glass" style="margin-top:1rem">
+        <h3 class="section-title">Sign-in preview</h3>
+        <p class="muted" style="margin:0 0 12px;font-size:0.85rem">How users enter AgentRadar when SSO is enabled.</p>
+        <button class="btn" style="width:100%;margin-bottom:0.5rem;justify-content:center;display:flex;align-items:center;gap:0.5rem" onclick="testEntra()">
+          <span style="display:inline-grid;place-items:center;width:18px;height:18px;border-radius:4px;background:#2f6feb;color:#fff;font-size:0.65rem;font-weight:700">MS</span>
+          Sign in with Microsoft
+        </button>
+        <button class="btn btn-ghost" style="width:100%" onclick="toast(saml.enabled ? 'Redirecting to SAML IdP…' : 'Enable SAML to use this path')">Sign in with SAML IdP</button>
+        <p class="muted" style="margin:12px 0 0;font-size:0.72rem;text-align:center">Local password login remains available for break-glass admins.</p>
+      </div>
+    </div>
+  </div>`;
+}
+
+function loginView() {
+  return `<div class="login">
+    <section class="login-visual">
+      <div>
+        <h1 class="login-brand">Agent<span>Radar</span></h1>
+        <p class="lead"><strong>Your CMDB for AI agents.</strong> Know every agent, model, edge, and runtime in motion — before you govern them.</p>
+      </div>
+      <div class="proof">
+        <div class="proof-item"><strong>Unified AI inventory</strong>Cloud, SaaS, healthcare EHR, EDR, SIEM, and shadow AI in one system of record.</div>
+        <div class="proof-item"><strong>PHI & HIPAA ready</strong>BAA tracking, risk scoring, and evidence packages built for regulated enterprises.</div>
+        <div class="proof-item"><strong>Board-ready reporting</strong>CISO posture, framework compliance, and audit trails without spreadsheet chaos.</div>
+      </div>
+    </section>
+    <section class="login-panel">
+      <div class="login-card glass" style="box-shadow:var(--shadow-lg)">
+        <h2>Sign in to the prototype</h2>
+        <p class="sub">Explore the governance experience with seeded Acme Health estate data.</p>
+        <button class="btn" style="width:100%;margin-bottom:0.85rem;display:flex;align-items:center;justify-content:center;gap:0.55rem;padding:0.7rem" onclick="ssoLogin()">
+          <span style="display:inline-grid;place-items:center;width:18px;height:18px;border-radius:4px;background:#2f6feb;color:#fff;font-size:0.65rem;font-weight:700">MS</span>
+          Sign in with Microsoft Entra
+        </button>
+        <div style="display:flex;align-items:center;gap:0.75rem;margin:0 0 0.85rem">
+          <div style="flex:1;height:1px;background:var(--line)"></div>
+          <span class="muted" style="font-size:0.72rem;font-weight:600;letter-spacing:0.06em;text-transform:uppercase">or email</span>
+          <div style="flex:1;height:1px;background:var(--line)"></div>
+        </div>
+        <div class="form-row"><label>Work email</label><input id="email" value="analyst@acme.health" /></div>
+        <div class="form-row"><label>Password</label><input id="password" type="password" value="Analyst123!" /></div>
+        <button class="btn btn-primary" style="width:100%;padding:0.7rem" onclick="login()">Continue</button>
+        <div class="persona">
+          <button onclick="quickLogin('Alex Rivera','ciso')"><strong>CISO</strong><span>Board risk & shadow AI</span></button>
+          <button onclick="quickLogin('Sam Chen','analyst')"><strong>Analyst</strong><span>Investigate & quarantine</span></button>
+          <button onclick="quickLogin('Jordan Lee','auditor')"><strong>Auditor</strong><span>Evidence & compliance</span></button>
+          <button onclick="quickLogin('Riley Park','platform_admin')"><strong>Platform</strong><span>SSO, IAM & connectors</span></button>
+        </div>
+        <p class="muted" style="margin:1.1rem 0 0;font-size:0.72rem;text-align:center">Client-side prototype · No server required</p>
+      </div>
+    </section>
+  </div>`;
+}
+
+function currentView() {
+  const map = {
+    dashboard: viewDashboard, discovery: viewDiscovery, shadow: viewShadow, phi: viewPhi,
+    risk: viewRisk, policy: viewPolicy, operations: viewOps, compliance: viewCompliance,
+    playbooks: viewPlaybooks, ciso: viewCiso, models: viewModels, coverage: viewCoverage,
+    integrations: viewIntegrations, sso: viewSsoIam, enforcement: viewEnforcement,
+    'risk-weights': viewRiskWeights,
+  };
+  return (map[state.view] || viewDashboard)();
+}
+
+function render() {
+  document.getElementById('app').innerHTML = state.user ? shell(currentView()) : loginView();
+}
+
+function go(view) { state.view = view; state.selected = null; render(); }
+function openAgent(id) { state.selected = id; state.tab = 'identity'; render(); }
+function closeAgent() { state.selected = null; render(); }
+function setTab(t) { state.tab = t; render(); }
+function find(id) { return state.agents.find(a => a.id === id); }
+function refreshAgent(a) {
+  const base = {...a}; delete base.fw; delete base.score; delete base.level; delete base.factors; delete base.confidence;
+  Object.assign(a, enrich(base));
+}
+function approve(id) {
+  const a = find(id); if (!a) return;
+  a.shadow = false; a.lifecycle = 'approved'; a.reviewed = new Date().toISOString().slice(0,10);
+  refreshAgent(a);
+  deliverEnforcement('agent.approve', a);
+  toast(`Approved · ${a.name} · enforcement notified`);
+  render();
+}
+function quarantine(id) {
+  const a = find(id); if (!a) return;
+  a.lifecycle = 'quarantined'; refreshAgent(a);
+  deliverEnforcement('agent.quarantine', a);
+  toast(`Quarantined · ${a.name} · enforcement notified`);
+  render();
+}
+function acceptRisk(id) {
+  const a = find(id); if (!a) return;
+  const reason = (document.getElementById('acceptReason')?.value || '').trim();
+  const until = document.getElementById('acceptUntil')?.value;
+  if (!reason || !until) { toast('Reason and expiry required'); return; }
+  a.riskAccepted = true;
+  a.riskAcceptedUntil = until;
+  a.riskAcceptReason = reason;
+  refreshAgent(a);
+  toast(`Risk accepted until ${until}`);
+  render();
+}
+function deliverEnforcement(event, agent) {
+  const hints = {
+    servicenow: 'create_incident',
+    zscaler: 'block_or_coach',
+    edr: 'contain_process',
+    entra: 'conditional_access_signal',
+    generic: 'notify',
+  };
+  for (const w of state.webhooks.filter(x => x.enabled && (x.events||[]).includes(event))) {
+    state.deliveries.unshift({
+      at: nowStamp(),
+      event,
+      webhook: w.name,
+      status: 'simulated',
+      hint: hints[w.kind] || 'notify',
+      agent: agent.name,
+    });
+  }
+}
+function exportEstateEvidence() {
+  const pkg = {
+    generated_at: new Date().toISOString(),
+    package_type: 'estate_evidence',
+    positioning: 'Your CMDB for AI agents',
+    agent_count: state.agents.length,
+    packages: state.agents.map(a => ({
+      fingerprint: a.fingerprint,
+      external_id: a.external_id,
+      name: a.name,
+      risk_score: a.score,
+      risk_level: a.level,
+      frameworks: a.fw,
+      baa: a.baa,
+      lifecycle: a.lifecycle,
+    })),
+  };
+  const blob = new Blob([JSON.stringify(pkg, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const el = document.createElement('a'); el.href = url; el.download = 'agentradar-estate-evidence.json'; el.click();
+  URL.revokeObjectURL(url);
+  toast('Estate evidence downloaded');
+}
+function saveWebhook() {
+  const name = (document.getElementById('whName')?.value || '').trim();
+  const kind = document.getElementById('whKind')?.value || 'generic';
+  const url = (document.getElementById('whUrl')?.value || '').trim();
+  if (!name || !url) { toast('Name and URL required'); return; }
+  state.webhooks.push({
+    id: Date.now(), name, kind, url, enabled: true,
+    events: ['agent.quarantine', 'agent.approve'],
+  });
+  toast('Webhook saved');
+  render();
+}
+function removeWebhook(id) {
+  state.webhooks = state.webhooks.filter(w => w.id !== id);
+  toast('Webhook removed');
+  render();
+}
+function saveRiskWeights() {
+  for (const k of Object.keys(DEFAULT_WEIGHTS)) {
+    const el = document.getElementById(`rw_${k}`);
+    if (el) state.riskWeights[k] = Number(el.value);
+  }
+  state.agents.forEach(refreshAgent);
+  toast('Risk weights saved · estate re-scored');
+  render();
+}
+function resetRiskWeights() {
+  state.riskWeights = { ...DEFAULT_WEIGHTS };
+  state.agents.forEach(refreshAgent);
+  toast('Defaults restored');
+  render();
+}
+function setBaa(id, status) {
+  const a = find(id); if (!a) return;
+  a.baa = status; refreshAgent(a); toast(`BAA updated · ${status}`); render();
+}
+function assignOwner(id) {
+  const a = find(id); if (!a) return;
+  a.owner = document.getElementById('ownerInput').value.trim() || null;
+  refreshAgent(a); toast('Owner saved'); render();
+}
+function downloadEvidence(id) {
+  const a = find(id);
+  const blob = new Blob([JSON.stringify({generated_at:new Date().toISOString(),agent:a,frameworks:a.fw},null,2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const el = document.createElement('a'); el.href = url; el.download = `agentradar-evidence-${a.id}.json`; el.click();
+  URL.revokeObjectURL(url);
+}
+function runPolicy(key, remediate) {
+  const p = POLICIES.find(x => x.key === key);
+  const hits = state.agents.filter(p.match);
+  if (remediate) {
+    for (const a of hits) {
+      if (key === 'shadow_phi' || key === 'shadow_high') a.lifecycle = 'quarantined';
+      if (key === 'overdue') a.lifecycle = 'under_review';
+      refreshAgent(a);
+    }
+  }
+  toast(`${p.name} · ${hits.length} ${remediate?'remediated':'found'}`);
+  render();
+}
+function remediateAll() {
+  for (const p of POLICIES) runPolicy(p.key, true);
+  toast('All policies remediated');
+}
+function runPlaybook(i) {
+  const p = PLAYBOOKS[i];
+  state.log = { playbook: p.name, at: new Date().toISOString(), steps: p.steps.map(s => ({step:s, status:'complete'})) };
+  if (p.name.includes('Quarantine')) state.agents.filter(a=>a.shadow).forEach(a=>{a.lifecycle='quarantined'; refreshAgent(a);});
+  toast(`Ran ${p.name}`);
+  render();
+}
+function nowStamp() {
+  const d = new Date();
+  return d.toISOString().slice(0,16).replace('T',' ');
+}
+function setIntegGroup(g) {
+  state.integGroup = g;
+  const first = PROVIDERS.find(p=>p.group===g);
+  if (first) state.integProvider = first.id;
+  render();
+}
+function setIntegProvider(id) {
+  state.integProvider = id;
+  const p = PROVIDERS.find(x => x.id === id);
+  state.integMode = p?.liveCapable ? 'live' : 'demo';
+  render();
+}
+function connect(id) {
+  state.connected.add(id);
+  const p = PROVIDERS.find(x=>x.id===id);
+  state.connectors[id] = state.connectors[id] || {
+    status:'active', agents:0, lastTested:nowStamp(), lastScanned:'—', name:p.name,
+    mode: p.liveCapable ? 'live' : 'demo', firstWave: !!p.firstWave,
+  };
+  toast(`Connected ${p.name}`);
+  go('integrations');
+}
+function addConnector() {
+  const id = state.integProvider;
+  const p = PROVIDERS.find(x=>x.id===id);
+  const name = (document.getElementById('cname')?.value || '').trim() || `${p.name} connector`;
+  const mode = document.getElementById('cmode')?.value || state.integMode || 'demo';
+  state.connected.add(id);
+  state.connectors[id] = {
+    ...(state.connectors[id]||{}),
+    name, status:'active', mode, firstWave: !!p.firstWave,
+    lastTested:nowStamp(), lastScanned:state.connectors[id]?.lastScanned||'—',
+    agents: state.connectors[id]?.agents || 0,
+  };
+  toast(`Saved · ${name} · ${mode === 'live' ? 'Live' : 'Demo'}`);
+  render();
+}
+function testConnector(id) {
+  if (!state.connected.has(id) && id !== state.integProvider) {
+    state.connected.add(id);
+  }
+  const p = PROVIDERS.find(x=>x.id===id);
+  state.connectors[id] = {
+    ...(state.connectors[id]||{ name:p.name, agents:0, lastScanned:'—' }),
+    status:'active', lastTested:nowStamp(),
+  };
+  state.connected.add(id);
+  toast(`Connection OK · ${p.name}`);
+  render();
+}
+function scanConnector(id, opts = {}) {
+  const p = PROVIDERS.find(x=>x.id===id);
+  if (!p) return 0;
+  state.connected.add(id);
+  const found = 1 + Math.floor(Math.random() * 3);
+  state.connectors[id] = {
+    ...(state.connectors[id]||{ name:p.name, status:'active', lastTested:nowStamp() }),
+    agents: (state.connectors[id]?.agents||0) + found,
+    lastScanned: nowStamp(),
+    status:'active',
+  };
+  if (!opts.silent) {
+    toast(`Scan complete · ${p.name} · +${found} agents`);
+    render();
+  }
+  return found;
+}
+function removeConnector(id) {
+  state.connected.delete(id);
+  delete state.connectors[id];
+  toast('Connector removed');
+  render();
+}
+function scanCategory(g) {
+  const targets = PROVIDERS.filter(p=>p.group===g && state.connected.has(p.id));
+  if (!targets.length) {
+    toast(`No ${GROUP_LABELS[g]||g} connectors connected`);
+    return;
+  }
+  let total = 0;
+  for (const p of targets) total += scanConnector(p.id, { silent: true });
+  toast(`${GROUP_LABELS[g]||g} scan finished · ${targets.length} source(s) · +${total} agents`);
+  render();
+}
+function scanAll() {
+  if (!state.connected.size) { toast('Connect a source first'); return; }
+  let total = 0;
+  for (const id of [...state.connected]) total += scanConnector(id, { silent: true });
+  toast(`Scan all complete · ${state.connected.size} sources · +${total} agents`);
+  go('discovery');
+}
+function login() {
+  const email = document.getElementById('email').value || 'analyst@acme.health';
+  state.user = { email, name: 'Sam Chen', role: 'analyst' };
+  state.view = 'dashboard';
+  toast('Welcome to AgentRadar');
+  render();
+}
+function quickLogin(name, role) {
+  state.user = { name, role, email: `${role}@acme.health` };
+  state.view = role === 'ciso' ? 'ciso' : role === 'platform_admin' ? 'sso' : role === 'auditor' ? 'compliance' : 'dashboard';
+  toast(`Signed in as ${name}`);
+  render();
+}
+function logout() { state.user = null; state.selected = null; render(); }
+
+function setSsoTab(t) { state.ssoTab = t; render(); }
+function toggleSso(kind) {
+  state.sso[kind].enabled = !state.sso[kind].enabled;
+  toast(`${kind === 'entra' ? 'Microsoft Entra' : 'SAML'} ${state.sso[kind].enabled ? 'enabled' : 'disabled'}`);
+  render();
+}
+function saveEntra() {
+  state.sso.entra.tenantId = document.getElementById('entraTenant')?.value.trim() || state.sso.entra.tenantId;
+  state.sso.entra.clientId = document.getElementById('entraClient')?.value.trim() || state.sso.entra.clientId;
+  state.sso.entra.domains = (document.getElementById('entraDomains')?.value || '')
+    .split(',').map(s => s.trim()).filter(Boolean);
+  state.sso.entra.jit = !!document.getElementById('entraJit')?.checked;
+  state.sso.entra.defaultRole = document.getElementById('entraRole')?.value || 'viewer';
+  state.sso.entra.lastSync = nowStamp();
+  state.sso.entra.enabled = true;
+  toast('Entra settings saved');
+  render();
+}
+function saveSaml() {
+  state.sso.saml.metadataUrl = document.getElementById('samlMeta')?.value.trim() || '';
+  state.sso.saml.certificate = document.getElementById('samlCert')?.value.trim() || '';
+  state.sso.saml.enabled = true;
+  toast('SAML settings saved');
+  render();
+}
+function testEntra() {
+  if (!state.sso.entra.enabled) {
+    toast('Enable Microsoft Entra first');
+    state.view = 'sso'; state.ssoTab = 'entra';
+    if (state.user) render();
+    return;
+  }
+  state.user = {
+    name: 'Alex Rivera',
+    role: 'ciso',
+    email: 'alex.rivera@acme.health',
+    source: 'Entra ID',
+  };
+  state.view = 'sso';
+  state.ssoTab = 'users';
+  toast('SSO success · signed in via Microsoft Entra');
+  render();
+}
+function ssoLogin() { testEntra(); }
+function addMapping() {
+  const claim = document.getElementById('mapClaim')?.value.trim();
+  const value = document.getElementById('mapValue')?.value.trim();
+  const role = document.getElementById('mapRole')?.value;
+  if (!claim || !value || !role) { toast('Fill claim, value, and role'); return; }
+  state.sso.mappings.push({ claim, value, role });
+  toast('Role mapping added');
+  render();
+}
+function removeMapping(i) {
+  state.sso.mappings.splice(i, 1);
+  toast('Mapping removed');
+  render();
+}
+function changeUserRole(i, role) {
+  state.iamUsers[i].role = role;
+  toast(`Role updated · ${state.iamUsers[i].email}`);
+  render();
+}
+function revokeUser(i) {
+  const u = state.iamUsers[i];
+  state.iamUsers.splice(i, 1);
+  toast(`Access revoked · ${u.email}`);
+  render();
+}
+
+render();
+</script>
+</body>
+</html>

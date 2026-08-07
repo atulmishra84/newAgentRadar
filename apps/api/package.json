@@ -1,0 +1,27 @@
+{
+  "name": "@agentradar/api",
+  "version": "1.0.0",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "test": "node --test test/risk.test.js",
+    "test:integration": "node --test test/auth.integration.test.js"
+  },
+  "dependencies": {
+    "@agentradar/shared": "*",
+    "bcryptjs": "^2.4.3",
+    "cookie-parser": "^1.4.6",
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "helmet": "^7.1.0",
+    "ioredis": "^5.4.2",
+    "jsonwebtoken": "^9.0.2",
+    "openid-client": "^5.7.0",
+    "otplib": "^12.0.1",
+    "pdfkit": "^0.15.0",
+    "pg": "^8.13.1",
+    "qrcode": "^1.5.4",
+    "uuid": "^9.0.1"
+  }
+}
