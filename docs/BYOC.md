@@ -13,8 +13,12 @@ AgentRadar is designed for Bring-Your-Own-Cloud: customer data stays in the cust
 ```bash
 cp .env.example .env
 # edit secrets, set COOKIE_SECURE=true, APP_URL=https://your-host
+# Do NOT set SEED_ON_START=true in production (wipes/reseeds demo data)
 docker compose up --build -d
 ```
+
+Production containers run migrate then API only. Demo/dev images may set `SEED_ON_START=true`.
+Optional continuous discovery: `DISCOVERY_INTERVAL_MS=3600000` (minimum 60000).
 
 Services:
 
@@ -36,9 +40,9 @@ ENTRA_CLIENT_SECRET=
 ENTRA_REDIRECT_URI=https://your-host/api/auth/entra/callback
 ```
 
-Register the redirect URI in the Entra app registration. Users are JIT-provisioned as `viewer` if unknown (configurable per tenant). Map Entra claims to AgentRadar roles under **SSO & IAM**.
+Register the redirect URI in the Entra app registration. Users are JIT-provisioned per tenant SSO config. Claim→role mappings under **SSO & IAM** are applied on Entra callback (and update existing users when a mapping matches).
 
-Set `MFA_ENFORCE=true` to require MFA enrollment for `platform_admin` and `ciso` before password login succeeds.
+Set `MFA_ENFORCE=true` to require MFA enrollment for `platform_admin` and `ciso`. Users with MFA enabled must complete a TOTP challenge after password login.
 
 ## First-wave connectors
 

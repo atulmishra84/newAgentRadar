@@ -9,6 +9,7 @@ export default function AgentDrawer({ agentId, onClose, onChanged }) {
   const [owner, setOwner] = useState('');
   const [acceptReason, setAcceptReason] = useState('');
   const [acceptUntil, setAcceptUntil] = useState('');
+  const [edit, setEdit] = useState({});
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState('');
 
@@ -19,6 +20,14 @@ export default function AgentDrawer({ agentId, onClose, onChanged }) {
     api(`/api/agents/${agentId}`).then((d) => {
       setAgent(d.agent);
       setOwner(d.agent.owner || '');
+      setEdit({
+        category: d.agent.category || '',
+        environment: d.agent.environment || '',
+        lifecycle: d.agent.lifecycle || 'active',
+        phi_flag: !!d.agent.phi_flag,
+        pii_flag: !!d.agent.pii_flag,
+        model_ref: d.agent.model_ref || '',
+      });
     });
   }, [agentId]);
 
@@ -52,6 +61,21 @@ export default function AgentDrawer({ agentId, onClose, onChanged }) {
       });
       setAgent(d.agent);
       onChanged?.(d.agent);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function saveEdit() {
+    setBusy(true);
+    setMsg('');
+    try {
+      const d = await api(`/api/agents/${agentId}`, { method: 'PATCH', body: edit });
+      setAgent(d.agent);
+      setMsg('Passport updated');
+      onChanged?.(d.agent);
+    } catch (e) {
+      setMsg(e.message || 'Update failed');
     } finally {
       setBusy(false);
     }
@@ -120,7 +144,7 @@ export default function AgentDrawer({ agentId, onClose, onChanged }) {
             </div>
 
             <div className="tabs">
-              {['identity', 'risk', 'compliance', 'ownership', 'evidence'].map((t) => (
+              {['identity', 'edit', 'risk', 'compliance', 'ownership', 'evidence'].map((t) => (
                 <button
                   key={t}
                   className={`tab ${tab === t ? 'active' : ''}`}
@@ -144,6 +168,33 @@ export default function AgentDrawer({ agentId, onClose, onChanged }) {
                 <p><strong>Sources:</strong> {(agent.detection_sources || []).join(', ') || '—'}</p>
                 <p><strong>Data stores:</strong> {(agent.data_stores || []).join(', ') || '—'}</p>
                 <p><strong>Protocols:</strong> {(agent.protocols || []).join(', ') || '—'}</p>
+              </div>
+            )}
+
+            {tab === 'edit' && (
+              <div className="glass">
+                <div className="form-row"><label>Category</label>
+                  <input value={edit.category || ''} onChange={(e) => setEdit({ ...edit, category: e.target.value })} /></div>
+                <div className="form-row"><label>Environment</label>
+                  <input value={edit.environment || ''} onChange={(e) => setEdit({ ...edit, environment: e.target.value })} /></div>
+                <div className="form-row"><label>Lifecycle</label>
+                  <select value={edit.lifecycle || 'active'} onChange={(e) => setEdit({ ...edit, lifecycle: e.target.value })}>
+                    {['active','dormant','under_review','approved','retired','quarantined'].map((l) => (
+                      <option key={l} value={l}>{l}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="form-row"><label>Model</label>
+                  <input value={edit.model_ref || ''} onChange={(e) => setEdit({ ...edit, model_ref: e.target.value })} /></div>
+                <label style={{ display: 'block', marginBottom: 8 }}>
+                  <input type="checkbox" checked={!!edit.phi_flag} onChange={(e) => setEdit({ ...edit, phi_flag: e.target.checked })} style={{ width: 'auto', marginRight: 8 }} />
+                  PHI
+                </label>
+                <label style={{ display: 'block', marginBottom: 8 }}>
+                  <input type="checkbox" checked={!!edit.pii_flag} onChange={(e) => setEdit({ ...edit, pii_flag: e.target.checked })} style={{ width: 'auto', marginRight: 8 }} />
+                  PII
+                </label>
+                <button className="btn btn-primary" disabled={busy} onClick={saveEdit}>Save passport</button>
               </div>
             )}
 

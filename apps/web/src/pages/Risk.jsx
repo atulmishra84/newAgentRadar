@@ -7,9 +7,18 @@ export default function Risk() {
   const [data, setData] = useState(null);
   const [selected, setSelected] = useState(null);
 
+  async function load() {
+    setData(await api('/api/risk/analytics'));
+  }
+
   useEffect(() => {
-    api('/api/risk/analytics').then(setData).catch(console.error);
+    load().catch(console.error);
   }, []);
+
+  async function captureSnapshot() {
+    await api('/api/risk/snapshot', { method: 'POST', body: {} });
+    await load();
+  }
 
   if (!data) return <p className="muted">Loading risk analytics…</p>;
 
@@ -20,6 +29,9 @@ export default function Risk() {
       <div className="page-head">
         <h1>Risk Analytics</h1>
         <p>Distribution, environment heatmap, top risks, remediation queue, and 7-day trend.</p>
+      </div>
+      <div className="toolbar">
+        <button className="btn btn-primary" onClick={captureSnapshot}>Capture risk snapshot</button>
       </div>
       <div className="grid grid-4">
         {Object.entries(data.distribution).map(([k, v]) => (

@@ -50,6 +50,14 @@ router.post('/users', async (req, res) => {
      RETURNING id, email, name, role, created_at`,
     [req.tenantId, email, name, role || 'analyst', hash]
   );
+  await logAudit({
+    tenantId: req.tenantId,
+    actorId: req.user.sub,
+    actorEmail: req.user.email,
+    action: 'admin.user_create',
+    detail: { userId: rows[0].id, email, role: rows[0].role },
+    req,
+  });
   res.status(201).json({ user: rows[0] });
 });
 

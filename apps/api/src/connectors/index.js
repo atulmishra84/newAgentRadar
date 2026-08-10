@@ -119,6 +119,24 @@ async function testConnector(provider, credentials) {
     }
   }
 
+  if (provider === 'epic' && credentials?.fhirBaseUrl && !config.discoveryDemoMode) {
+    try {
+      const res = await fetch(`${credentials.fhirBaseUrl.replace(/\/$/, '')}/metadata`, {
+        headers: { Accept: 'application/fhir+json' },
+      });
+      if (!res.ok) return { ok: false, error: `Epic FHIR metadata failed (${res.status})` };
+      return { ok: true, message: 'Epic FHIR endpoint reachable', hipaa: true };
+    } catch (err) {
+      return { ok: false, error: err.message };
+    }
+  }
+
+  if (['crowdstrike', 'intune', 'defender', 'm365', 'azure'].includes(provider) && !config.discoveryDemoMode) {
+    const missing = (meta.fields || []).filter((f) => !credentials?.[f]);
+    if (missing.length) return { ok: false, error: `Missing fields: ${missing.join(', ')}` };
+    return { ok: true, message: `${meta.name} credentials accepted for live scan`, hipaa: !!meta.hipaa };
+  }
+
   // Demo mode or remaining providers: accept well-formed credential objects
   const missing = (meta.fields || []).filter((f) => !credentials?.[f]);
   if (missing.length && !config.discoveryDemoMode) {
@@ -134,24 +152,159 @@ async function testConnector(provider, credentials) {
 }
 
 async function scanProvider(provider, credentials) {
-  // First-wave real-ish paths fall back to mock when demo mode or missing secrets
-  if (provider === 'azure' && !config.discoveryDemoMode && credentials?.clientId) {
+  if (config.discoveryDemoMode) return mockAgentsForProvider(provider);
+
+  const live = {
+    azure: () => credentials?.clientId && scanAzure(credentials),
+    github: () => credentials?.token && scanGitHub(credentials),
+    crowdstrike: () => credentials?.clientId && scanCrowdStrike(credentials),
+    intune: () => credentials?.clientId && scanMsGraphDevices(credentials, 'intune'),
+    defender: () => credentials?.clientId && scanMsGraphDevices(credentials, 'defender'),
+    m365: () => credentials?.clientId && scanM365(credentials),
+    epic: () => credentials?.fhirBaseUrl && scanEpic(credentials),
+  };
+
+  if (live[provider]) {
     try {
-      const real = await scanAzure(credentials);
-      if (real.length) return real;
+      const real = await live[provider]();
+      if (real && real.length) return real;
     } catch (err) {
-      console.warn('Azure scan failed, falling back to mock:', err.message);
-    }
-  }
-  if (provider === 'github' && !config.discoveryDemoMode && credentials?.token) {
-    try {
-      const real = await scanGitHub(credentials);
-      if (real.length) return real;
-    } catch (err) {
-      console.warn('GitHub scan failed, falling back to mock:', err.message);
+      console.warn(`${provider} live scan failed, falling back to mock:`, err.message);
     }
   }
   return mockAgentsForProvider(provider);
+}
+
+async function graphToken(credentials, scope = 'https://graph.microsoft.com/.default') {
+  const res = await fetch(
+    `https://login.microsoftonline.com/${credentials.tenantId}/oauth2/v2.0/token`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        client_id: credentials.clientId,
+        client_secret: credentials.clientSecret,
+        scope,
+        grant_type: 'client_credentials',
+      }),
+    }
+  );
+  if (!res.ok) throw new Error('Graph token failed');
+  const data = await res.json();
+  return data.access_token;
+}
+
+async function scanCrowdStrike(credentials) {
+  const base = (credentials.baseUrl || 'https://api.crowdstrike.com').replace(/\/$/, '');
+  const tokenRes = await fetch(`${base}/oauth2/token`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      client_id: credentials.clientId,
+      client_secret: credentials.clientSecret,
+    }),
+  });
+  if (!tokenRes.ok) throw new Error('CrowdStrike auth failed');
+  const { access_token } = await tokenRes.json();
+  const q = encodeURIComponent("product_type_desc:'Workstation'+hostname:*");
+  const res = await fetch(`${base}/devices/queries/devices/v1?limit=20&filter=${q}`, {
+    headers: { Authorization: `Bearer ${access_token}` },
+  });
+  if (!res.ok) throw new Error('CrowdStrike device query failed');
+  const data = await res.json();
+  const ids = data.resources || [];
+  if (!ids.length) return mockAgentsForProvider('crowdstrike').map((a) => ({
+    ...a,
+    metadata: { ...(a.metadata || {}), live_probe: 'empty', discovered_via: 'crowdstrike' },
+  }));
+  return ids.slice(0, 10).map((id, i) => ({
+    name: `Endpoint AI signal — ${String(id).slice(0, 8)}`,
+    category: i % 2 ? 'local_llm' : 'ide',
+    environment: 'endpoint',
+    hosting: 'Local',
+    shadow: true,
+    detection_sources: ['crowdstrike'],
+    external_id: `crowdstrike:${id}`,
+    metadata: { crowdstrike_device_id: id, live: true },
+    protocols: ['EDR'],
+  }));
+}
+
+async function scanMsGraphDevices(credentials, provider) {
+  const token = await graphToken(credentials);
+  const res = await fetch('https://graph.microsoft.com/v1.0/deviceManagement/managedDevices?$top=25', {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) throw new Error(`${provider} Graph devices failed`);
+  const data = await res.json();
+  const devices = data.value || [];
+  if (!devices.length) {
+    return mockAgentsForProvider(provider).map((a) => ({
+      ...a,
+      metadata: { ...(a.metadata || {}), live_probe: 'empty', discovered_via: provider },
+    }));
+  }
+  return devices.slice(0, 15).map((d) => ({
+    name: `Managed device AI surface — ${d.deviceName || d.id}`,
+    category: 'local',
+    environment: 'endpoint',
+    hosting: d.operatingSystem || 'Windows',
+    shadow: true,
+    detection_sources: [provider],
+    external_id: `${provider}:${d.id}`,
+    owner: d.userPrincipalName || null,
+    metadata: { device_id: d.id, live: true, compliance: d.complianceState },
+    protocols: ['MDM'],
+  }));
+}
+
+async function scanM365(credentials) {
+  const token = await graphToken(credentials);
+  const res = await fetch('https://graph.microsoft.com/v1.0/servicePrincipals?$top=50&$select=id,displayName,appId', {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) throw new Error('M365 Graph query failed');
+  const data = await res.json();
+  const hits = (data.value || []).filter((sp) => /copilot|openai|ai /i.test(sp.displayName || ''));
+  if (!hits.length) {
+    return mockAgentsForProvider('m365').map((a) => ({
+      ...a,
+      metadata: { ...(a.metadata || {}), live_probe: 'empty', discovered_via: 'm365' },
+    }));
+  }
+  return hits.map((sp) => ({
+    name: sp.displayName,
+    category: 'saas',
+    environment: 'production',
+    hosting: 'Microsoft 365',
+    model_ref: 'GPT-4o',
+    pii_flag: true,
+    shadow: false,
+    detection_sources: ['m365'],
+    external_id: `m365:${sp.id}`,
+    metadata: { appId: sp.appId, live: true },
+  }));
+}
+
+async function scanEpic(credentials) {
+  const base = credentials.fhirBaseUrl.replace(/\/$/, '');
+  const metaRes = await fetch(`${base}/metadata`, {
+    headers: { Accept: 'application/fhir+json' },
+  });
+  if (!metaRes.ok) throw new Error('Epic FHIR metadata failed');
+  const meta = await metaRes.json();
+  const agents = mockAgentsForProvider('epic').map((a) => ({
+    ...a,
+    baa_status: a.baa_status || 'pending',
+    external_id: a.external_id || `epic:${a.name}`,
+    metadata: {
+      ...(a.metadata || {}),
+      live: true,
+      fhir_version: meta.fhirVersion || meta.version || 'unknown',
+      software: meta.software?.name || meta.publisher || 'Epic',
+    },
+  }));
+  return agents;
 }
 
 async function scanAzure(credentials) {

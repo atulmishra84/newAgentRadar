@@ -19,6 +19,7 @@ import Admin from './pages/Admin';
 import Sso from './pages/Sso';
 import Enforcement from './pages/Enforcement';
 import RiskSettings from './pages/RiskSettings';
+import Tenants from './pages/Tenants';
 
 function Private({ children }) {
   const { user, loading } = useAuth();
@@ -56,6 +57,7 @@ export default function App() {
         <Route path="sso" element={<Sso />} />
         <Route path="risk-settings" element={<RiskSettings />} />
         <Route path="admin" element={<Admin />} />
+        <Route path="tenants" element={<Tenants />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

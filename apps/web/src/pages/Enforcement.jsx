@@ -82,9 +82,18 @@ export default function Enforcement() {
             <input value={form.url} onChange={(e) => setForm({ ...form, url: e.target.value })} placeholder="https://…" />
           </div>
           <div className="form-row">
-            <label>Secret (optional)</label>
-            <input value={form.secret} onChange={(e) => setForm({ ...form, secret: e.target.value })} type="password" />
+            <label>Secret / native credentials (optional)</label>
+            <input
+              value={form.secret}
+              onChange={(e) => setForm({ ...form, secret: e.target.value })}
+              type="password"
+              placeholder='HMAC secret or JSON e.g. {"username":"","password":""}'
+            />
           </div>
+          <p className="muted" style={{ fontSize: 12 }}>
+            Native adapters: ServiceNow incident API, Zscaler policy POST, CrowdStrike contain, Entra Graph signal.
+            Example URLs stay simulated.
+          </p>
           <div className="form-row">
             <label>Events</label>
             {['agent.quarantine', 'agent.approve'].map((ev) => (

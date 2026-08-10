@@ -44,6 +44,8 @@ services:
       PORT: 4000
       APP_URL: ${APP_URL:-https://localhost}
       COOKIE_SECURE: "true"
+      SEED_ON_START: ${SEED_ON_START:-false}
+      DISCOVERY_INTERVAL_MS: ${DISCOVERY_INTERVAL_MS:-0}
     depends_on:
       postgres:
         condition: service_healthy

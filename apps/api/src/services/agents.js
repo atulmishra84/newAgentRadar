@@ -209,7 +209,13 @@ async function upsertDiscovered(tenantId, payload) {
     [tenantId, rows[0].id, JSON.stringify({ name: rows[0].name, fingerprint: rows[0].fingerprint })]
   );
 
-  return rows[0];
+  try {
+    const phi = require('./phiInspect');
+    await phi.inspectAndPersist(tenantId, rows[0].id);
+    return getAgent(tenantId, rows[0].id);
+  } catch {
+    return rows[0];
+  }
 }
 
 async function evidencePackage(tenantId, id) {

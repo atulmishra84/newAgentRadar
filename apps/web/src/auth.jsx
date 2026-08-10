@@ -29,10 +29,18 @@ export function AuthProvider({ children }) {
       method: 'POST',
       body: { email, password },
     });
+    if (data.mfaChallenge || data.mfaEnrollRequired) return data;
     localStorage.setItem('ar_token', data.token);
-    if (data.csrfToken) {
-      /* cookie also set by server */
-    }
+    setUser(data.user);
+    return data;
+  }
+
+  async function completeMfaLogin(challengeToken, code) {
+    const data = await api('/api/auth/mfa/verify-login', {
+      method: 'POST',
+      body: { challengeToken, code },
+    });
+    localStorage.setItem('ar_token', data.token);
     setUser(data.user);
     return data;
   }
@@ -48,7 +56,7 @@ export function AuthProvider({ children }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, completeMfaLogin, logout, setUser }}>
       {children}
     </AuthContext.Provider>
   );

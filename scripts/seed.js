@@ -128,11 +128,12 @@ async function main() {
     for (const u of USERS) {
       const hash = await bcrypt.hash(u.password, 10);
       await client.query(
-        `INSERT INTO users (tenant_id, email, name, role, password_hash)
-         VALUES ($1,$2,$3,$4,$5)
+        `INSERT INTO users (tenant_id, email, name, role, password_hash, platform_operator)
+         VALUES ($1,$2,$3,$4,$5,$6)
          ON CONFLICT (tenant_id, email) DO UPDATE SET
-           name=EXCLUDED.name, role=EXCLUDED.role, password_hash=EXCLUDED.password_hash`,
-        [tenantId, u.email, u.name, u.role, hash]
+           name=EXCLUDED.name, role=EXCLUDED.role, password_hash=EXCLUDED.password_hash,
+           platform_operator=EXCLUDED.platform_operator`,
+        [tenantId, u.email, u.name, u.role, hash, u.role === 'platform_admin']
       );
     }
 

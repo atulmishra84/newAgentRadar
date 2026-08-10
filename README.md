@@ -75,9 +75,10 @@ Open `https://localhost` (self-signed cert).
 - Server-authoritative RBAC (5 roles)
 - Encrypted connector credentials (AES-256-GCM)
 - Immutable `admin_audit_log`
-- Optional Microsoft Entra OIDC (`ENTRA_*`)
-- Optional MFA enforcement for admin/CISO (`MFA_ENFORCE=true`)
+- Optional Microsoft Entra OIDC with claim→role mapping (`ENTRA_*`)
+- TOTP MFA enroll/challenge; optional enforce for admin/CISO (`MFA_ENFORCE=true`)
 - Optional SIEM webhook forward (`SIEM_WEBHOOK_URL`)
+- Structured request logs + `/api/metrics`; optional scheduled discovery (`DISCOVERY_INTERVAL_MS`)
 
 ## Docs
 

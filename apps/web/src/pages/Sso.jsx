@@ -1,17 +1,27 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api';
+import { useAuth } from '../auth';
 
 const ROLES = ['platform_admin', 'ciso', 'analyst', 'auditor', 'viewer'];
 
 export default function Sso() {
+  const { user, setUser } = useAuth();
   const [data, setData] = useState(null);
+  const [saml, setSaml] = useState(null);
   const [config, setConfig] = useState({});
   const [mapping, setMapping] = useState({ claim_name: 'roles', claim_value: '', role: 'analyst' });
   const [msg, setMsg] = useState('');
+  const [qr, setQr] = useState('');
+  const [secret, setSecret] = useState('');
+  const [mfaCode, setMfaCode] = useState('');
 
   async function load() {
-    const d = await api('/api/settings/sso');
+    const [d, s] = await Promise.all([
+      api('/api/settings/sso'),
+      api('/api/auth/saml/status'),
+    ]);
     setData(d);
+    setSaml(s);
     setConfig(d.config || {});
   }
 
@@ -35,6 +45,22 @@ export default function Sso() {
   async function removeMapping(id) {
     await api(`/api/settings/sso/mappings/${id}`, { method: 'DELETE' });
     await load();
+  }
+
+  async function startMfa() {
+    const d = await api('/api/auth/mfa/enroll/start', { method: 'POST', body: {} });
+    setQr(d.qrDataUrl);
+    setSecret(d.secret);
+    setMsg('Scan QR, then confirm with a code');
+  }
+
+  async function confirmMfa() {
+    await api('/api/auth/mfa/enroll/confirm', { method: 'POST', body: { code: mfaCode } });
+    setMsg('MFA enabled');
+    setQr('');
+    setSecret('');
+    setMfaCode('');
+    if (setUser && user) setUser({ ...user, mfa_enabled: true });
   }
 
   if (!data) return <p className="muted">Loading SSO & IAM…</p>;
@@ -70,6 +96,66 @@ export default function Sso() {
       </div>
 
       {msg && <p className="muted">{msg}</p>}
+
+      <div className="glass" style={{ marginBottom: 16 }}>
+        <h3 style={{ marginTop: 0 }}>MFA enrollment</h3>
+        <p className="muted" style={{ marginTop: 0 }}>
+          Required for {(data.mfa_required_roles || []).join(', ')} when MFA_ENFORCE=true. Your MFA: {user?.mfa_enabled ? 'on' : 'off'}.
+        </p>
+        {!user?.mfa_enabled && (
+          <div className="row-actions">
+            <button className="btn btn-primary" onClick={startMfa}>Start MFA enroll</button>
+          </div>
+        )}
+        {qr && (
+          <div style={{ marginTop: 12 }}>
+            <img src={qr} alt="MFA QR" width={160} height={160} />
+            <p className="mono muted">{secret}</p>
+            <div className="form-row"><label>Confirm code</label>
+              <input value={mfaCode} onChange={(e) => setMfaCode(e.target.value)} /></div>
+            <button className="btn btn-primary" onClick={confirmMfa}>Confirm MFA</button>
+          </div>
+        )}
+      </div>
+
+      {saml && (
+        <div className="glass" style={{ marginBottom: 16 }}>
+          <h3 style={{ marginTop: 0 }}>SAML 2.0</h3>
+          <p className="muted">{saml.message}</p>
+          <p className="muted" style={{ fontSize: 13 }}>
+            Configured: {saml.configured ? 'Yes' : 'No — set IdP SSO URL below'}
+          </p>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginBottom: 6 }}>
+            <span>Entity ID</span><span className="mono">{saml.entityId}</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginBottom: 6 }}>
+            <span>ACS URL</span><span className="mono">{saml.acsUrl}</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginBottom: 12 }}>
+            <span>Metadata</span><span className="mono">{saml.metadataUrl}</span>
+          </div>
+          <div className="form-row">
+            <label>IdP SSO URL</label>
+            <input
+              value={config.saml?.ssoUrl || ''}
+              onChange={(e) => setConfig({ ...config, saml: { ...(config.saml || {}), ssoUrl: e.target.value } })}
+              placeholder="https://idp.example.com/sso"
+            />
+          </div>
+          <div className="row-actions">
+            <button className="btn btn-primary" onClick={saveConfig}>Save SAML IdP</button>
+            <button
+              className="btn"
+              onClick={async () => {
+                const d = await api('/api/auth/saml/login');
+                window.location.href = d.url;
+              }}
+            >
+              Test SAML login
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-2">
         <div className="glass">

@@ -17,4 +17,5 @@ WORKDIR /app
 ENV NODE_ENV=production
 COPY --from=build /app /app
 EXPOSE 4000
-CMD ["sh", "-c", "node scripts/migrate.js && node scripts/seed.js && node apps/api/src/server.js"]
+# SEED_ON_START=true only for demo/dev images — never enable in production customer deploys
+CMD ["sh", "-c", "node scripts/migrate.js && if [ \"$SEED_ON_START\" = \"true\" ]; then node scripts/seed.js; fi && node apps/api/src/server.js"]

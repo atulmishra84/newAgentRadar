@@ -41,6 +41,7 @@ const NAV = [
     items: [
       ['/integrations', 'Integrations'],
       ['/sso', 'SSO & IAM'],
+      ['/tenants', 'Tenants'],
       ['/admin', 'Admin'],
     ],
   },
@@ -70,7 +71,7 @@ export default function Layout() {
           </nav>
           <div style={{ marginTop: '1.5rem', fontSize: '0.8rem' }} className="muted">
             <div>{user?.name}</div>
-            <div>{user?.role}</div>
+            <div>{user?.role}{user?.tenantSlug ? ` · ${user.tenantSlug}` : ''}</div>
             {user?.mfa_enabled === false && ['platform_admin', 'ciso'].includes(user?.role) && (
               <div style={{ color: 'var(--warn)', marginTop: 4 }}>MFA recommended</div>
             )}

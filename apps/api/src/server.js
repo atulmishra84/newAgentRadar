@@ -8,6 +8,8 @@ const cookieParser = require('cookie-parser');
 const cors = require('cors');
 const config = require('./config');
 const { csrfProtection } = require('./middleware/rateLimit');
+const { requestLog, metrics } = require('./middleware/requestLog');
+const { startScheduler } = require('./services/scheduler');
 
 const authRoutes = require('./routes/auth');
 const agentRoutes = require('./routes/agents');
@@ -25,6 +27,8 @@ const auditRoutes = require('./routes/audit');
 const adminRoutes = require('./routes/admin');
 const enforcementRoutes = require('./routes/enforcement');
 const settingsRoutes = require('./routes/settings');
+const tenantRoutes = require('./routes/tenants');
+const phiInspectRoutes = require('./routes/phiInspect');
 
 const app = express();
 
@@ -38,9 +42,20 @@ app.use(
 );
 app.use(express.json({ limit: '1mb' }));
 app.use(cookieParser());
+app.use(requestLog);
 
 app.get('/api/health', (req, res) => {
-  res.json({ ok: true, service: 'agentradar-api', env: config.env });
+  res.json({
+    ok: true,
+    service: 'agentradar-api',
+    env: config.env,
+    discovery_demo_mode: config.discoveryDemoMode,
+    metrics: metrics(),
+  });
+});
+
+app.get('/api/metrics', (req, res) => {
+  res.json({ service: 'agentradar-api', ...metrics() });
 });
 
 app.use('/api/auth', authRoutes);
@@ -63,6 +78,8 @@ app.use('/api/audit', auditRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/enforcement', enforcementRoutes);
 app.use('/api/settings', settingsRoutes);
+app.use('/api/tenants', tenantRoutes);
+app.use('/api/phi-inspect', phiInspectRoutes);
 
 // Serve built SPA in production
 const webDist = path.join(__dirname, '../../../apps/web/dist');
@@ -82,6 +99,7 @@ app.use((err, req, res, _next) => {
 if (require.main === module) {
   app.listen(config.port, () => {
     console.log(`AgentRadar API listening on :${config.port}`);
+    startScheduler();
   });
 }
 

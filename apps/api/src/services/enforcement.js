@@ -2,6 +2,7 @@
 
 const db = require('../models/db');
 const { logAudit } = require('./audit');
+const { deliverNative } = require('./nativeEnforcement');
 
 async function listWebhooks(tenantId) {
   const { rows } = await db.query(
@@ -37,6 +38,29 @@ async function deleteWebhook(tenantId, id) {
   await db.query(`DELETE FROM enforcement_webhooks WHERE tenant_id=$1 AND id=$2`, [tenantId, id]);
 }
 
+function hintForKind(kind, event, payload) {
+  const name = payload.agent?.name || payload.name || 'agent';
+  switch (kind) {
+    case 'servicenow':
+      return {
+        action: 'create_incident',
+        short_description: `AgentRadar ${event}: ${name}`,
+        urgency: event.includes('quarantine') ? 1 : 2,
+      };
+    case 'zscaler':
+    case 'netskope':
+      return { action: 'block_or_coach', destination: name, policy: 'shadow_ai_deny' };
+    case 'edr':
+    case 'crowdstrike':
+    case 'defender':
+      return { action: 'contain_process', target: name, reason: event };
+    case 'entra':
+      return { action: 'conditional_access_signal', app: name, control: 'block_or_mfa' };
+    default:
+      return { action: 'notify', event };
+  }
+}
+
 async function deliver(tenantId, event, payload, { user, req } = {}) {
   const { rows: hooks } = await db.query(
     `SELECT * FROM enforcement_webhooks WHERE tenant_id=$1 AND enabled=true`,
@@ -62,30 +86,39 @@ async function deliver(tenantId, event, payload, { user, req } = {}) {
     let response_code = null;
     let error = null;
 
-    const simulate =
-      !hook.url ||
-      /\.example(\.|$)|example\.(com|org|local)|localhost|127\.0\.0\.1/i.test(hook.url);
+    const simulateUrl =
+      !hook.url || /\.example(\.|$)|example\.(com|org|local)|localhost|127\.0\.0\.1/i.test(hook.url);
 
-    if (!simulate) {
-      try {
+    try {
+      const native = await deliverNative(hook, event, { ...body, agent: payload.agent });
+      if (native) {
+        status = native.status;
+        response_code = native.response_code;
+        error = native.error;
+        body.adapter = native.adapter;
+        body.adapter_note = native.note || null;
+      } else if (!simulateUrl) {
         const res = await fetch(hook.url, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            ...(hook.secret ? { 'X-AgentRadar-Secret': hook.secret } : {}),
+            ...(hook.secret && !hook.secret.trim().startsWith('{')
+              ? { 'X-AgentRadar-Secret': hook.secret }
+              : {}),
           },
           body: JSON.stringify(body),
         });
         response_code = res.status;
         status = res.ok ? 'delivered' : 'failed';
         if (!res.ok) error = `HTTP ${res.status}`;
-      } catch (err) {
-        status = 'failed';
-        error = err.message;
+      } else {
+        status = 'simulated';
+        response_code = 202;
+        body.adapter = `${hook.kind}.simulated`;
       }
-    } else {
-      status = 'simulated';
-      response_code = 202;
+    } catch (err) {
+      status = 'failed';
+      error = err.message;
     }
 
     const ins = await db.query(
@@ -107,29 +140,6 @@ async function deliver(tenantId, event, payload, { user, req } = {}) {
   });
 
   return deliveries;
-}
-
-function hintForKind(kind, event, payload) {
-  const name = payload.agent?.name || payload.name || 'agent';
-  switch (kind) {
-    case 'servicenow':
-      return {
-        action: 'create_incident',
-        short_description: `AgentRadar ${event}: ${name}`,
-        urgency: event.includes('quarantine') ? 1 : 2,
-      };
-    case 'zscaler':
-    case 'netskope':
-      return { action: 'block_or_coach', destination: name, policy: 'shadow_ai_deny' };
-    case 'edr':
-    case 'crowdstrike':
-    case 'defender':
-      return { action: 'contain_process', target: name, reason: event };
-    case 'entra':
-      return { action: 'conditional_access_signal', app: name, control: 'block_or_mfa' };
-    default:
-      return { action: 'notify', event };
-  }
 }
 
 async function listDeliveries(tenantId, limit = 50) {
