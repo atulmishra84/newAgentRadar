@@ -1,0 +1,34 @@
+{
+  "name": "agentradar-api",
+  "version": "1.0.0",
+  "description": "AgentRadar Backend API",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "*",
+    "@azure/identity": "*",
+    "@azure/keyvault-secrets": "*",
+    "archiver": "*",
+    "bcryptjs": "*",
+    "compression": "*",
+    "connect-pg-simple": "*",
+    "cookie-parser": "*",
+    "cors": "*",
+    "express": "*",
+    "express-rate-limit": "*",
+    "express-session": "*",
+    "helmet": "*",
+    "ioredis": "*",
+    "jsonwebtoken": "*",
+    "morgan": "*",
+    "openid-client": "*",
+    "otplib": "^11.0.1",
+    "pg": "*",
+    "qrcode": "*",
+    "uuid": "*",
+    "winston": "*",
+    "zod": "*"
+  }
+}
