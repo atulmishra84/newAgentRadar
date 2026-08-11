@@ -1,4 +1,4 @@
-﻿CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 CREATE TABLE IF NOT EXISTS tenants (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -244,6 +244,16 @@ WHERE NOT EXISTS (SELECT 1 FROM playbooks WHERE id = 'a0000000-0000-0000-0000-00
 INSERT INTO playbooks (id, name, description, trigger_type, trigger_condition, steps, severity, auto_execute, created_by, tenant_id, icon, tags)
 SELECT 'a0000000-0000-0000-0000-000000000006', 'MCP/A2A Agent Governance', '48 hours', 'manual', '{}'::jsonb, '["Discover all MCP server configs", "Assess tool access and capabilities", "Implement principle of least privilege", "Register in agent inventory", "Configure audit logging for all tool calls"]'::jsonb, 'medium', true, 'system', '00000000-0000-0000-0000-000000000001', 'ðŸ”—', '["MCP", "A2A", "Claude Code"]'::jsonb
 WHERE NOT EXISTS (SELECT 1 FROM playbooks WHERE id = 'a0000000-0000-0000-0000-000000000006');
+CREATE TABLE IF NOT EXISTS policies (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    tenant_id UUID,
+    name VARCHAR(255),
+    description TEXT,
+    config JSONB,
+    enabled BOOLEAN DEFAULT true,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
 INSERT INTO policies (tenant_id, name, description, config, enabled) VALUES 
 ('00000000-0000-0000-0000-000000000001', 'No PII without GDPR compliance', 'Any agent accessing PII must have GDPR = pass', '{"cond": "pii_no_gdpr", "act": "flag"}', true),
 ('00000000-0000-0000-0000-000000000001', 'Shadow critical auto-alert', 'Critical-risk shadow agents trigger CISO alert', '{"cond": "shadow_critical", "act": "alert"}', true),
@@ -260,6 +270,8 @@ CREATE TABLE IF NOT EXISTS tenant_ai_integrations (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   UNIQUE(tenant_id, provider)
 );
+ALTER TABLE agents ADD COLUMN IF NOT EXISTS baa_status VARCHAR(50);
+
 UPDATE agents 
 SET phi = true, 
     baa_status = 'unsigned', 
