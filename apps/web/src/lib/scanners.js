@@ -1,0 +1,180 @@
+export const SCANNERS = [
+  {
+    id: 'sc-net-probe', name: 'Network Port Prober', icon: '📡',
+    category: 'network', method: 'TCP SYN / Banner grab',
+    color: '#6366f1',
+    targets: '10.0.0.0/8 · 192.168.0.0/16 · 172.16.0.0/12',
+    ports: '80,443,8080,8443,8899,11434,5000,7860,3000',
+    interval: 'Every 15 min',
+    protocols: ['REST', 'HTTP', 'Unknown'],
+    tags: [{ t: 'On-Prem', c: 'rgba(99,102,241,0.1)', tc: '#3730a3' }, { t: 'Hybrid', c: 'rgba(99,102,241,0.1)', tc: '#3730a3' }],
+    desc: 'Probes all internal subnets for open ports associated with AI inference servers, LLM APIs, and agentic runtimes.'
+  },
+  {
+    id: 'sc-cloud-aws', name: 'AWS Cloud Scanner', icon: '🟠',
+    category: 'cloud', method: 'AWS API · AssumeRole IAM',
+    color: '#f59e0b',
+    targets: 'us-east-1 · eu-west-1 · ap-southeast-1',
+    ports: '443 (HTTPS API)',
+    interval: 'Every 30 min',
+    protocols: ['AWS Lambda', 'SageMaker Endpoint', 'Bedrock'],
+    tags: [{ t: 'Cloud', c: 'rgba(245,158,11,0.1)', tc: '#92400e' }, { t: 'IAM Read-only', c: 'rgba(16,185,129,0.1)', tc: '#065f46' }],
+    desc: 'Enumerates Lambda functions, SageMaker endpoints, Bedrock models, and EC2 instances with AI-related naming or tags.'
+  },
+  {
+    id: 'sc-cloud-azure', name: 'Azure AI Scanner', icon: '🔷',
+    category: 'cloud', method: 'Azure REST API · Service Principal',
+    color: '#3b82f6',
+    targets: '3 subscriptions · East US · West Europe',
+    ports: '443 (HTTPS)',
+    interval: 'Every 30 min',
+    protocols: ['Azure OpenAI', 'ML Studio', 'Cognitive Services'],
+    tags: [{ t: 'Cloud', c: 'rgba(59,130,246,0.1)', tc: '#1d4ed8' }, { t: 'Connected', c: 'rgba(16,185,129,0.1)', tc: '#065f46' }],
+    desc: 'Discovers Azure OpenAI deployments, ML Studio compute endpoints, and Cognitive Services integrations across all subscriptions.'
+  },
+  {
+    id: 'sc-cloud-gcp', name: 'GCP Vertex AI Scanner', icon: '🟢',
+    category: 'cloud', method: 'GCP API · Service Account',
+    color: '#10b981',
+    targets: 'healthtech-prod · healthtech-dev',
+    ports: '443 (HTTPS)',
+    interval: 'Every 30 min',
+    protocols: ['Vertex AI Endpoint', 'Cloud Run', 'Cloud Functions'],
+    tags: [{ t: 'Cloud', c: 'rgba(16,185,129,0.1)', tc: '#065f46' }, { t: 'Connected', c: 'rgba(16,185,129,0.1)', tc: '#065f46' }],
+    desc: 'Scans GCP Vertex AI model endpoints, Cloud Run services, and Cloud Functions for AI workloads across all project environments.'
+  },
+  {
+    id: 'sc-idp-oauth', name: 'OAuth / IdP Grant Scanner', icon: '⬡',
+    category: 'identity',
+    method: 'Okta Events API · Azure AD Graph · Google Admin SDK',
+    color: '#a855f7',
+    targets: 'All IdP tenants — OAuth app registry · enterprise app grants',
+    ports: '443/HTTPS',
+    interval: 'Every 60 min',
+    protocols: ['HTTPS REST', 'OAuth2'],
+    tags: [{ t: 'Identity', c: 'rgba(168,85,247,0.1)', tc: '#7e22ce' }, { t: 'SaaS', c: 'rgba(200,210,240,0.3)', tc: '#64748b' }],
+    desc: 'Scans Okta, Azure AD, and Google Workspace for OAuth grants to AI platforms. Finds externally-hosted Claude agents that users authorised without IT approval.'
+  },
+  {
+    id: 'sc-casb', name: 'CASB / Proxy Traffic Scanner', icon: '🛡️',
+    category: 'dlp',
+    method: 'Zscaler API · Netskope REST · Palo Alto Prisma · proxy log ingestion',
+    color: '#f43f5e',
+    targets: 'All egress proxy / CASB platforms in tenant',
+    ports: '443/HTTPS',
+    interval: 'Every 15 min',
+    protocols: ['HTTPS REST', 'Syslog', 'CEF'],
+    tags: [{ t: 'DLP', c: 'rgba(244,63,94,0.1)', tc: '#be123c' }],
+    desc: 'Ingests Zscaler, Netskope, or proxy logs to detect traffic to externally-hosted AI agent platforms. The only reliable way to see hosted Claude agents without a host-level agent.'
+  },
+  {
+    id: 'sc-dns', name: 'DNS Query Monitor', icon: '🌐',
+    category: 'dns', method: 'DNS resolver intercept · Query log analysis',
+    color: '#8b5cf6',
+    targets: 'All internal DNS resolvers · Upstream forwarders · claude.ai DLP watch',
+    ports: '53/UDP · 53/TCP · 853 DoT',
+    interval: 'Continuous',
+    protocols: ['OpenAI API', 'Anthropic API', 'HuggingFace', 'LangChain', 'Pinecone'],
+    tags: [{ t: 'All environments', c: 'rgba(139,92,246,0.1)', tc: '#5b21b6' }, { t: 'Passive', c: 'rgba(200,210,240,0.3)', tc: '#64748b' }],
+    desc: 'Passively monitors DNS queries matching known LLM API domains, vector DB endpoints, and AI framework callback patterns. No agent required.'
+  },
+  {
+    id: 'sc-process', name: 'SSH Process Scanner', icon: '🔑',
+    category: 'process', method: 'SSH · ps aux · ss -tlnp · ~/.claude/claude_desktop_config.json',
+    color: '#f59e0b',
+    targets: 'DESKTOP-7F3A · dev01 · dev02 · ws-004',
+    ports: '22/TCP SSH',
+    interval: 'Every 10 min',
+    protocols: ['Python SDK', 'Claude Code CLI', 'Anthropic API', 'MCP Protocol'],
+    tags: [{ t: 'On-Prem', c: 'rgba(99,102,241,0.1)', tc: '#3730a3' }, { t: 'SSH key auth', c: 'rgba(200,210,240,0.3)', tc: '#64748b' }],
+    desc: 'Connects via read-only SSH to managed workstations and servers. Runs ps aux, ss -tlnp, and /proc/net/tcp to detect shadow AI processes.'
+  },
+  {
+    id: 'sc-k8s', name: 'Kubernetes Pod Scanner', icon: '⎈',
+    category: 'network', method: 'Kubernetes API · kubectl list',
+    color: '#3b82f6',
+    targets: 'prod-cluster · ai-workloads namespace',
+    ports: '6443/TCP K8s API',
+    interval: 'Every 5 min',
+    protocols: ['Kubernetes', 'Docker', 'Container runtime'],
+    tags: [{ t: 'Cloud', c: 'rgba(59,130,246,0.1)', tc: '#1d4ed8' }, { t: 'On-Prem', c: 'rgba(99,102,241,0.1)', tc: '#3730a3' }],
+    desc: 'Enumerates running pods, deployments, and services in watched namespaces. Flags containers with AI-related image names, inference ports, or model volume mounts.'
+  },
+  {
+    id: 'sc-hl7', name: 'HL7 MLLP Port Monitor', icon: '🏥',
+    category: 'healthcare', method: 'Port scan · MLLP handshake · HL7 v2 parse',
+    color: '#ef4444',
+    targets: '10.1.0.0/16 · 10.2.0.0/16 · MLLP port 2575',
+    ports: '2575/TCP MLLP',
+    interval: 'Every 2 min',
+    protocols: ['HL7 v2', 'MLLP', 'ADT feeds'],
+    tags: [{ t: 'Healthcare', c: 'rgba(14,165,233,0.1)', tc: '#0c4a6e' }, { t: 'HIPAA critical', c: 'rgba(239,68,68,0.1)', tc: '#991b1b' }],
+    desc: 'Scans for active MLLP listeners on port 2575 and validates each against the approved HL7 gateway registry. Unauthorized listeners trigger HIPAA critical alerts.'
+  },
+  {
+    id: 'sc-fhir', name: 'FHIR Endpoint Discoverer', icon: '📋',
+    category: 'healthcare', method: 'SMART on FHIR · CapabilityStatement',
+    color: '#0ea5e9',
+    targets: 'Epic FHIR R4 · Cerner · Internal FHIR servers',
+    ports: '443/HTTPS',
+    interval: 'Every 20 min',
+    protocols: ['FHIR R4', 'SMART on FHIR', 'OAuth 2.0'],
+    tags: [{ t: 'Healthcare', c: 'rgba(14,165,233,0.1)', tc: '#0c4a6e' }, { t: 'HIPAA PHI', c: 'rgba(245,158,11,0.1)', tc: '#92400e' }],
+    desc: 'Fetches FHIR CapabilityStatements from registered EHR endpoints. Discovers SMART apps, audits AuditEvent logs, and flags PHI-accessing agents without BAA.'
+  },
+  {
+    id: 'sc-dicom', name: 'DICOM Gateway Prober', icon: '🩻',
+    category: 'healthcare', method: 'DICOM C-ECHO · AE Title query',
+    color: '#0ea5e9',
+    targets: 'pacs.healthsys.org · port 104 · port 11112',
+    ports: '104/DICOM · 11112/DICOM-TLS',
+    interval: 'Every 30 min',
+    protocols: ['DICOM', 'C-ECHO', 'C-FIND'],
+    tags: [{ t: 'Healthcare', c: 'rgba(14,165,233,0.1)', tc: '#0c4a6e' }, { t: 'Imaging PHI', c: 'rgba(245,158,11,0.1)', tc: '#92400e' }],
+    desc: 'Sends DICOM C-ECHO pings and AE Title queries to PACS gateways. No pixel data is read — only network presence and AE Title registration is audited.'
+  },
+  {
+    id: 'sc-splunk', name: 'Splunk SIEM Connector', icon: '📊',
+    category: 'log', method: 'Splunk REST API · HEC token · SPL search',
+    color: '#f59e0b',
+    targets: 'splunk.healthsys.org:8089 · 3 indexes',
+    ports: '8089/TCP REST',
+    interval: 'Every 5 min',
+    protocols: ['Splunk HEC', 'REST', 'SPL'],
+    tags: [{ t: 'All environments', c: 'rgba(139,92,246,0.1)', tc: '#5b21b6' }, { t: 'Connected', c: 'rgba(16,185,129,0.1)', tc: '#065f46' }],
+    desc: 'Executes SPL queries against security and application log indexes looking for LLM API calls, shadow AI network patterns, and HL7 port activity.'
+  },
+  {
+    id: 'sc-traffic', name: 'Network Traffic Analyser', icon: '🔭',
+    category: 'dns', method: 'NetFlow · IPFIX · Packet metadata',
+    color: '#8b5cf6',
+    targets: 'Core switch · DMZ egress · VPN gateway',
+    ports: '2055/UDP NetFlow · 4739/UDP IPFIX',
+    interval: 'Continuous',
+    protocols: ['NetFlow v9', 'IPFIX', 'sFlow'],
+    tags: [{ t: 'All environments', c: 'rgba(139,92,246,0.1)', tc: '#5b21b6' }, { t: 'Passive', c: 'rgba(200,210,240,0.3)', tc: '#64748b' }],
+    desc: 'Analyses NetFlow and IPFIX records for traffic patterns consistent with LLM API usage, exfiltration volumes, and connections to known AI service IP ranges.'
+  },
+  {
+    id: 'sc-api-token', name: 'API Token Tracer', icon: '🔐',
+    category: 'log', method: 'OAuth audit log · API key pattern scan · Git scan',
+    color: '#6366f1',
+    targets: 'GitHub org · GitLab · Slack workspace · Okta audit',
+    ports: '443/HTTPS',
+    interval: 'Every 60 min',
+    protocols: ['OAuth 2.0', 'GitHub API', 'Slack API', 'Okta Events'],
+    tags: [{ t: 'Cloud', c: 'rgba(59,130,246,0.1)', tc: '#1d4ed8' }, { t: 'SaaS', c: 'rgba(200,210,240,0.3)', tc: '#64748b' }],
+    desc: 'Scans Git repositories for hardcoded API keys, audits OAuth grant logs for unapproved AI service tokens, and cross-references Okta SSO events for shadow access.'
+  },
+  {
+    id: 'sc-mcp-a2a', name: 'MCP / A2A Protocol Scanner', icon: '🤖',
+    category: 'network', method: '/.well-known probe · claude_desktop_config.json',
+    color: '#6366f1',
+    targets: 'All registered agent runtimes',
+    ports: 'Any (protocol-level)',
+    interval: 'Continuous',
+    protocols: ['MCP', 'A2A Communication'],
+    tags: [{ t: 'All environments', c: 'rgba(139,92,246,0.1)', tc: '#5b21b6' }, { t: 'Agentic', c: 'rgba(99,102,241,0.1)', tc: '#3730a3' }],
+    desc: 'Detects Model Context Protocol (MCP) servers and Agent-to-Agent (A2A) communication buses via protocol fingerprinting. Maps inter-agent topology.'
+  }
+];
