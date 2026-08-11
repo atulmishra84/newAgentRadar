@@ -644,7 +644,7 @@ app.post(
       // C3 FIX: Set httpOnly cookie (XSS-safe) + keep body token for backward compat
       res.cookie("ar_session", token, {
         httpOnly: true,
-        secure: true,
+        secure: (process.env.APP_URL || "").startsWith("https"),
         sameSite: "strict",
         maxAge: 8 * 60 * 60 * 1000,
         path: "/",
@@ -691,7 +691,7 @@ app.post(
 app.post("/api/auth/logout", auth, async (req, res) => {
   res.clearCookie("ar_session", {
     path: "/",
-    secure: true,
+    secure: (process.env.APP_URL || "").startsWith("https"),
     sameSite: "strict",
   });
   await redis.del(`session:${req.user.sub}`).catch(() => {});
@@ -1363,7 +1363,7 @@ app.use(
       process.env.JWT_SECRET || "agentRadar-session-secret-change-in-prod",
     resave: false,
     saveUninitialized: false,
-    cookie: { secure: true, httpOnly: true, maxAge: 8 * 60 * 60 * 1000 },
+    cookie: { secure: (process.env.APP_URL || "").startsWith("https"), httpOnly: true, maxAge: 8 * 60 * 60 * 1000 },
   }),
 );
 
