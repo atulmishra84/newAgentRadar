@@ -283,3 +283,9 @@ SET phi = true,
 WHERE name IN ('cae-jarvis', 'acrorchestratorc39f7f');
 
 CREATE TABLE IF NOT EXISTS notifications (id UUID PRIMARY KEY DEFAULT uuid_generate_v4(), tenant_id UUID, title VARCHAR(255), message TEXT, type VARCHAR(50), read BOOLEAN DEFAULT false, created_at TIMESTAMP DEFAULT NOW());
+
+ALTER TABLE agents ADD COLUMN IF NOT EXISTS quarantined BOOLEAN DEFAULT false;
+ALTER TABLE agents ADD COLUMN IF NOT EXISTS owner VARCHAR(255);
+ALTER TABLE activity ADD COLUMN IF NOT EXISTS at TIMESTAMP DEFAULT NOW();
+ALTER TABLE webhooks ADD COLUMN IF NOT EXISTS tenant_id UUID;
+ALTER TABLE webhooks ADD COLUMN IF NOT EXISTS active BOOLEAN DEFAULT true;
