@@ -40,7 +40,7 @@ CREATE TABLE IF NOT EXISTS activity (
     description TEXT,
     agent_id UUID,
     created_by VARCHAR(255),
-    created_at TIMESTAMP DEFAULT NOW()
+    at TIMESTAMP DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS agents (
@@ -54,6 +54,8 @@ CREATE TABLE IF NOT EXISTS agents (
     phi BOOLEAN,
     pii BOOLEAN,
     hosted BOOLEAN,
+    quarantined BOOLEAN DEFAULT false,
+    owner VARCHAR(255),
     protocols TEXT,
     controls TEXT,
     metadata JSONB,
@@ -88,11 +90,13 @@ CREATE TABLE IF NOT EXISTS admin_audit_log (
 
 CREATE TABLE IF NOT EXISTS webhooks (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    tenant_id UUID,
     name VARCHAR(255),
     url TEXT,
     type VARCHAR(50),
     events JSONB,
     secret TEXT,
+    active BOOLEAN DEFAULT true,
     created_at TIMESTAMP DEFAULT NOW()
 );
 
