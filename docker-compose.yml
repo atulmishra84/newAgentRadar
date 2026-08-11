@@ -55,11 +55,11 @@ services:
       REDIS_PASSWORD: ""
       JWT_SECRET: ee847d5720ce353437b5f6f675ae3f6e6eaa403cc69eb30047416184b41ea504a5329e648707d4fad53ddaf5d010b5eee2556696ddae82865aee80d35f16ceb7
       TENANT_ID: 7a570fd1-8a60-4115-9e1b-68f9102f4eab
-      ALLOWED_ORIGINS: "https://20.228.158.234,https://agentradar.idenaccess.com,http://localhost:3001,http://127.0.0.1:3001,http://localhost"
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS}
       AZURE_SSO_CLIENT_ID: "69d24852-7933-4bd5-83db-c71112c8759d"
       AZURE_SSO_CLIENT_SECRET: "REDACTED"
       AZURE_TENANT_ID: "7a570fd1-8a60-4115-9e1b-68f9102f4eab"
-      APP_URL: "https://20.228.158.234"
+      APP_URL: ${APP_URL}
       LOG_ANALYTICS_WORKSPACE_ID: "da801d2c-7011-4955-8d7c-2c6f095ac4e2"
       LOG_ANALYTICS_KEY: "bVqFosND+vH9f2LtHh08VbYAtPg0drfPb2algvj9eqd/ZH/etciZBRlKmZM9W5lfGZZozzm8K9QZ9Pqi0/pZfg=="
     depends_on:
