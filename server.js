@@ -3490,7 +3490,7 @@ app.post("/api/integrations/credentials", auth, async (req, res) => {
       ON CONFLICT (provider, tenant_id) DO UPDATE
       SET credentials=$2, updated_by=$4, updated_at=NOW()
     `,
-      [provider, JSON.stringify(credentials), tId, req.user.email],
+      [provider, JSON.stringify(credentials), tId, req.user.id],
     );
 
     await auditLog(
@@ -3523,7 +3523,7 @@ app.post("/api/integrations/credentials", auth, async (req, res) => {
         INSERT INTO integration_credentials (provider, credentials, tenant_id, updated_by)
         VALUES ($1, $2, $3, $4)
       `,
-        [provider, JSON.stringify(credentials), tId, req.user.email],
+        [provider, JSON.stringify(credentials), tId, req.user.id],
       );
       res.json({ saved: true, provider });
     } else {
