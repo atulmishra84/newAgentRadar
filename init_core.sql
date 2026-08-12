@@ -120,7 +120,8 @@ CREATE TABLE IF NOT EXISTS integration_credentials (
     provider VARCHAR(255),
     credentials JSONB,
     updated_by UUID,
-    updated_at TIMESTAMP DEFAULT NOW()
+    updated_at TIMESTAMP DEFAULT NOW(),
+    UNIQUE(provider, tenant_id)
 );
 
 CREATE TABLE IF NOT EXISTS scanner_runs (
