@@ -870,17 +870,10 @@ async function discoverAzureConnector(conn) {
   const aiResources = classified.filter((c) => c.classification.aiRelevant);
   const otherResources = classified.filter((c) => !c.classification.aiRelevant);
   stats.aiRelevantResources = aiResources.length;
-  stats.nonAiResourcesSkipped = EFFECTIVE_AZURE_AI_ONLY ? otherResources.length : 0;
-  console.log(`[Azure Scan] Filtered to ${aiResources.length} AI-relevant resources.`);
+  stats.nonAiResourcesSkipped = 0; // We evaluate all for deep scanning
+  console.log(`[Azure Scan] Found ${aiResources.length} explicitly AI-relevant resources.`);
 
-  let selected = [...aiResources];
-  if (!EFFECTIVE_AZURE_AI_ONLY) {
-    for (const c of otherResources) {
-      if (selected.length >= MAX_RESOURCES) break;
-      selected.push(c);
-    }
-  }
-  selected = selected.slice(0, MAX_RESOURCES);
+  let selected = [...classified].slice(0, MAX_RESOURCES);
 
   const observations = [];
 
@@ -1020,7 +1013,11 @@ async function discoverAzureConnector(conn) {
     }
   }
 
-  const deduped = dedupeObservations(observations);
+  let deduped = dedupeObservations(observations);
+  if (EFFECTIVE_AZURE_AI_ONLY) {
+    deduped = deduped.filter(obs => obs.agent?.detected || shouldIngestAiOnly(obs.metadata?.aiRelevant));
+  }
+  
   for (const obs of deduped) tallyObservation(stats, obs);
   stats.discoveryErrors = discoveryErrors.length;
   console.log(`[Azure Scan] Discovery complete. Found ${deduped.length} unique observations.`);
