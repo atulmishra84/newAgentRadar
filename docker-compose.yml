@@ -43,7 +43,7 @@ services:
       retries: 3
     environment:
       NODE_ENV: production
-      DISCOVERY_AI_ONLY: "false"
+      DISCOVERY_AI_ONLY: "true"
       PORT: 4000
       POSTGRES_HOST: postgres
       POSTGRES_USER: agentradar
