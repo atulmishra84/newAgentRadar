@@ -162,13 +162,7 @@ CREATE TABLE IF NOT EXISTS models (
     last_audit timestamp
 );
 
-INSERT INTO models (tenant_id, name, vendor, type, task, agents, risk, phi, validated, version, last_audit) VALUES 
-('00000000-0000-0000-0000-000000000001', 'clinical-bert-v2', 'HuggingFace', 'NLP', 'Clinical NER / Coding', '[13, 15]', 'medium', true, true, '2.1.0', '2025-03-01'),
-('00000000-0000-0000-0000-000000000001', 'radiology-vit-large', 'Internal', 'Vision Transformer', 'Radiology Report Generation', '[14]', 'high', true, false, '1.3.2', '2025-01-15'),
-('00000000-0000-0000-0000-000000000001', 'drug-interaction-classifier', 'OpenFDA', 'Gradient Boost', 'Drug Interaction Detection', '[16]', 'low', false, true, '4.0.1', '2025-04-01'),
-('00000000-0000-0000-0000-000000000001', 'gpt-4o', 'OpenAI', 'LLM', 'General Automation', '[1]', 'critical', false, false, '2024-11', null),
-('00000000-0000-0000-0000-000000000001', 'claude-3-7-sonnet', 'Anthropic', 'LLM', 'Ops & Tooling', '[8]', 'low', false, true, '20250219', '2025-03-15'),
-('00000000-0000-0000-0000-000000000001', 'genomics-risk-scorer', 'Internal', 'Neural Net', 'Polygenic Risk Scoring', '[18]', 'high', true, false, '0.9.1', null);
+
 CREATE TABLE IF NOT EXISTS approvals (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id uuid NOT NULL,
@@ -181,17 +175,7 @@ CREATE TABLE IF NOT EXISTS approvals (
     resolved_by varchar(255)
 );
 
-INSERT INTO approvals (tenant_id, agent_id, stage, submitted_by, note, submitted_at) VALUES 
-('00000000-0000-0000-0000-000000000001', 'cb4a1bac-2ee9-47af-951b-c2b2f6409b4b', 'pending', 'system', 'Auto-flagged by scanner.', '2026-08-09 10:00:00'),
-('00000000-0000-0000-0000-000000000001', '12106a2b-52f7-4781-b480-2efbfb39a0e7', 'pending', 'system', 'Port 8899 scan detected.', '2026-08-09 11:30:00'),
-('00000000-0000-0000-0000-000000000001', 'fa35e181-a249-4f6c-ba2c-3532f85a2f63', 'review', 'system', 'Unknown ML endpoint â€” investigating.', '2026-08-08 14:00:00'),
-('00000000-0000-0000-0000-000000000001', 'c2b04306-3e2d-46f1-981d-35027c113fe2', 'pending', 'user@healthcareglobal.com', 'Employee using LangChain for doc search.', '2026-08-08 09:15:00'),
-('00000000-0000-0000-0000-000000000001', '68f2b24f-07a9-4c09-aa09-02db42d5e9d5', 'review', 'user@healthcareglobal.com', 'Zapier for workflow automation.', '2026-08-06 16:45:00');
 
-INSERT INTO approvals (tenant_id, agent_id, stage, submitted_by, note, submitted_at, resolved_at, resolved_by) VALUES 
-('00000000-0000-0000-0000-000000000001', '5ba50a49-e269-409d-a9bd-fcbabfc87781', 'approved', 'dev@healthcareglobal.com', 'DataSync ETL Bot initial request', '2026-03-14 10:00:00', '2026-03-15 14:00:00', 'Admin'),
-('00000000-0000-0000-0000-000000000001', '01f3b8d1-e560-4b8c-8754-ebcf775cd3a9', 'rejected', 'system', 'Rogue Crawler v1 detected', '2026-03-09 10:00:00', '2026-03-10 14:00:00', 'Admin'),
-('00000000-0000-0000-0000-000000000001', '677b155a-c4d1-4219-97b4-2573434b1acc', 'approved', 'analyst@healthcareglobal.com', 'Claude Ops Agent initial approval', '2026-01-19 10:00:00', '2026-01-20 14:00:00', 'Admin');
 CREATE TABLE IF NOT EXISTS playbooks (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   name varchar(255) NOT NULL,
@@ -224,31 +208,6 @@ CREATE TABLE IF NOT EXISTS playbook_runs (
   created_at timestamp DEFAULT now(),
   completed_at timestamp
 );
-
--- Seed playbooks if they don't exist
-INSERT INTO playbooks (id, name, description, trigger_type, trigger_condition, steps, severity, auto_execute, created_by, tenant_id, icon, tags)
-SELECT 'a0000000-0000-0000-0000-000000000001', 'Shadow AI Containment', '4 hours', 'manual', '{}'::jsonb, '["Isolate agent network access", "Notify security team and CISO", "Preserve agent logs and evidence", "Conduct root cause analysis", "Implement governance controls and re-approve"]'::jsonb, 'critical', true, 'system', '00000000-0000-0000-0000-000000000001', 'ðŸ”’', '["Shadow AI", "Containment", "Network"]'::jsonb
-WHERE NOT EXISTS (SELECT 1 FROM playbooks WHERE id = 'a0000000-0000-0000-0000-000000000001');
-
-INSERT INTO playbooks (id, name, description, trigger_type, trigger_condition, steps, severity, auto_execute, created_by, tenant_id, icon, tags)
-SELECT 'a0000000-0000-0000-0000-000000000002', 'PHI Breach Response', '1 hour', 'manual', '{}'::jsonb, '["Immediately quarantine agent", "Assess PHI scope & affected records", "Notify Privacy Officer within 1 hour", "File HIPAA breach report if >500 records", "Execute BAA review and remediation"]'::jsonb, 'critical', false, 'system', '00000000-0000-0000-0000-000000000001', 'ðŸ¥', '["HIPAA", "PHI", "Breach"]'::jsonb
-WHERE NOT EXISTS (SELECT 1 FROM playbooks WHERE id = 'a0000000-0000-0000-0000-000000000002');
-
-INSERT INTO playbooks (id, name, description, trigger_type, trigger_condition, steps, severity, auto_execute, created_by, tenant_id, icon, tags)
-SELECT 'a0000000-0000-0000-0000-000000000003', 'GDPR Compliance Remediation', '72 hours', 'manual', '{}'::jsonb, '["Identify all PII-accessing agents", "Verify lawful basis documentation", "Execute DPA with vendor within 72h", "Implement data minimization controls", "Update privacy notice and ROPA"]'::jsonb, 'high', false, 'system', '00000000-0000-0000-0000-000000000001', 'ðŸ“œ', '["GDPR", "PII", "Compliance"]'::jsonb
-WHERE NOT EXISTS (SELECT 1 FROM playbooks WHERE id = 'a0000000-0000-0000-0000-000000000003');
-
-INSERT INTO playbooks (id, name, description, trigger_type, trigger_condition, steps, severity, auto_execute, created_by, tenant_id, icon, tags)
-SELECT 'a0000000-0000-0000-0000-000000000004', 'Credential Exposure Response', '30 minutes', 'manual', '{}'::jsonb, '["Immediately rotate compromised credentials", "Revoke all tokens and API keys", "Scan all repos for additional exposure", "Audit API key usage logs", "Implement secrets management (Vault/etc)"]'::jsonb, 'critical', true, 'system', '00000000-0000-0000-0000-000000000001', 'ðŸ”‘', '["Credentials", "Secrets", "GitHub"]'::jsonb
-WHERE NOT EXISTS (SELECT 1 FROM playbooks WHERE id = 'a0000000-0000-0000-0000-000000000004');
-
-INSERT INTO playbooks (id, name, description, trigger_type, trigger_condition, steps, severity, auto_execute, created_by, tenant_id, icon, tags)
-SELECT 'a0000000-0000-0000-0000-000000000005', 'EU AI Act Conformity', '30 days', 'manual', '{}'::jsonb, '["Classify AI system risk tier", "Conduct conformity assessment", "Implement human oversight controls", "Register in EU AI database if required", "Update technical documentation"]'::jsonb, 'high', false, 'system', '00000000-0000-0000-0000-000000000001', 'âš–ï¸', '["EU AI Act", "Regulatory", "High-risk AI"]'::jsonb
-WHERE NOT EXISTS (SELECT 1 FROM playbooks WHERE id = 'a0000000-0000-0000-0000-000000000005');
-
-INSERT INTO playbooks (id, name, description, trigger_type, trigger_condition, steps, severity, auto_execute, created_by, tenant_id, icon, tags)
-SELECT 'a0000000-0000-0000-0000-000000000006', 'MCP/A2A Agent Governance', '48 hours', 'manual', '{}'::jsonb, '["Discover all MCP server configs", "Assess tool access and capabilities", "Implement principle of least privilege", "Register in agent inventory", "Configure audit logging for all tool calls"]'::jsonb, 'medium', true, 'system', '00000000-0000-0000-0000-000000000001', 'ðŸ”—', '["MCP", "A2A", "Claude Code"]'::jsonb
-WHERE NOT EXISTS (SELECT 1 FROM playbooks WHERE id = 'a0000000-0000-0000-0000-000000000006');
 CREATE TABLE IF NOT EXISTS policies (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     tenant_id UUID,
@@ -259,13 +218,7 @@ CREATE TABLE IF NOT EXISTS policies (
     created_at TIMESTAMP DEFAULT NOW()
 );
 
-INSERT INTO policies (tenant_id, name, description, config, enabled) VALUES 
-('00000000-0000-0000-0000-000000000001', 'No PII without GDPR compliance', 'Any agent accessing PII must have GDPR = pass', '{"cond": "pii_no_gdpr", "act": "flag"}', true),
-('00000000-0000-0000-0000-000000000001', 'Shadow critical auto-alert', 'Critical-risk shadow agents trigger CISO alert', '{"cond": "shadow_critical", "act": "alert"}', true),
-('00000000-0000-0000-0000-000000000001', 'No unknown protocols', 'Agents with unknown protocols must be reviewed', '{"cond": "unknown_proto", "act": "flag"}', true),
-('00000000-0000-0000-0000-000000000001', 'Cloud SOC2 requirement', 'All cloud agents must have SOC2 = pass', '{"cond": "cloud_no_soc2", "act": "flag"}', false),
-('00000000-0000-0000-0000-000000000001', 'PHI requires HIPAA compliance', 'Any agent with PHI access must have HIPAA = pass', '{"cond": "phi_no_hipaa", "act": "alert"}', true),
-('00000000-0000-0000-0000-000000000001', 'FHIR without HIPAA blocked', 'Agents using FHIR protocols must pass HIPAA controls', '{"cond": "fhir_no_hipaa", "act": "flag"}', true);
+
 CREATE TABLE IF NOT EXISTS tenant_ai_integrations (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
@@ -277,11 +230,7 @@ CREATE TABLE IF NOT EXISTS tenant_ai_integrations (
 );
 ALTER TABLE agents ADD COLUMN IF NOT EXISTS baa_status VARCHAR(50);
 
-UPDATE agents 
-SET phi = true, 
-    baa_status = 'unsigned', 
-    controls = '{"hipaa":"fail", "encryption":"fail"}' 
-WHERE name IN ('cae-jarvis', 'acrorchestratorc39f7f');
+
 
 CREATE TABLE IF NOT EXISTS notifications (id UUID PRIMARY KEY DEFAULT uuid_generate_v4(), tenant_id UUID, title VARCHAR(255), message TEXT, type VARCHAR(50), read BOOLEAN DEFAULT false, created_at TIMESTAMP DEFAULT NOW());
 
