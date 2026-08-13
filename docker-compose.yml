@@ -32,6 +32,7 @@ services:
       - ./server.js:/app/server.js
       - ./src:/app/src
       - ./azureDiscovery.js:/app/azureDiscovery.js
+      - ./awsDiscovery.js:/app/awsDiscovery.js
       - ./aiRelevance.js:/app/aiRelevance.js
       - ./azureDeepScan.js:/app/azureDeepScan.js
       - ./http.js:/app/http.js

@@ -2682,274 +2682,6 @@ app.post(
 );
 
 // ══ AWS DISCOVERY ENGINE ═══════════════════════════════════
-async function discoverAWS(accessKeyId, secretAccessKey, region = "us-east-1") {
-  const log = [];
-  const discovered = { services: [], scanners: new Set(), agents: [] };
-
-  try {
-    // AWS uses SigV4 signing — use fetch with AWS SDK pattern
-    // We call AWS APIs directly using the credentials
-    const AWS_REGIONS = [region, "us-east-1", "us-west-2", "eu-west-1"].filter(
-      (v, i, a) => a.indexOf(v) === i,
-    );
-
-    log.push({
-      step: "auth",
-      status: "ok",
-      msg: `AWS credentials received — scanning ${AWS_REGIONS.length} regions`,
-    });
-
-    // Helper: AWS API call with SigV4
-    async function awsCall(service, region, action, params = {}) {
-      try {
-        // Use AWS SDK via require if available, else use HTTP
-        const { S3Client, ListBucketsCommand } = require("@aws-sdk/client-s3")
-          .catch
-          ? {}
-          : {};
-        // Direct HTTP approach using AWS credentials
-        const queryStr = Object.entries({
-          Action: action,
-          ...params,
-          Version: "2012-10-17",
-        })
-          .map(([k, v]) => `${k}=${encodeURIComponent(v)}`)
-          .join("&");
-        const url = `https://${service}.${region}.amazonaws.com/?${queryStr}`;
-        const resp = await fetch(url, {
-          headers: {
-            "X-Amz-Security-Token": "",
-            Authorization: `AWS4-HMAC-SHA256 Credential=${accessKeyId}`,
-          },
-        }).catch(() => null);
-        return resp;
-      } catch (e) {
-        return null;
-      }
-    }
-
-    // Use AWS SDK packages if installed
-    let bedrockModels = [],
-      sagemakerEndpoints = [],
-      sagemakerModels = [],
-      lambdaFunctions = [],
-      ecrRepos = [],
-      s3Buckets = [];
-
-    for (const r of AWS_REGIONS) {
-      try {
-        // Bedrock — list foundation models
-        const bedrockResp = await fetch(
-          `https://bedrock.${r}.amazonaws.com/foundation-models`,
-          {
-            headers: await awsAuthHeaders(
-              accessKeyId,
-              secretAccessKey,
-              r,
-              "bedrock",
-              "GET",
-              "/foundation-models",
-            ),
-          },
-        )
-          .then((res) => res.json())
-          .catch(() => ({ modelSummaries: [] }));
-
-        if (bedrockResp.modelSummaries?.length) {
-          bedrockModels.push(
-            ...bedrockResp.modelSummaries.map((m) => ({ ...m, region: r })),
-          );
-          discovered.scanners.add("sc-cloud-aws");
-        }
-
-        // SageMaker — list endpoints
-        const smResp = await fetch(
-          `https://api.sagemaker.${r}.amazonaws.com/`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/x-amz-json-1.1",
-              "X-Amz-Target": "SageMaker.ListEndpoints",
-              ...(await awsAuthHeaders(
-                accessKeyId,
-                secretAccessKey,
-                r,
-                "sagemaker",
-                "POST",
-                "/",
-              )),
-            },
-            body: JSON.stringify({ MaxResults: 100 }),
-          },
-        )
-          .then((res) => res.json())
-          .catch(() => ({ Endpoints: [] }));
-
-        if (smResp.Endpoints?.length) {
-          sagemakerEndpoints.push(
-            ...smResp.Endpoints.map((e) => ({ ...e, region: r })),
-          );
-          discovered.scanners.add("sc-cloud-aws");
-        }
-      } catch (e) {}
-    }
-
-    // Register Bedrock models as agents
-    for (const model of bedrockModels) {
-      discovered.agents.push({
-        name: model.modelName || model.modelId,
-        type: "llm",
-        env: "Cloud",
-        risk: "medium",
-        shadow: false,
-        phi: false,
-        pii: false,
-        protocols: ["AWS Bedrock API", "REST"],
-        detect: "AWS auto-discovery",
-        notes: `AWS Bedrock | Model: ${model.modelId} | Provider: ${model.providerName} | Region: ${model.region}`,
-        controls: {
-          soc2: "warn",
-          iso27001: "warn",
-          gdpr: "warn",
-          nist: "warn",
-          euai: "fail",
-          hipaa: "pass",
-          hitrust: "warn",
-          fda_samd: "pass",
-        },
-      });
-      log.push({
-        step: "found",
-        status: "found",
-        msg: `Bedrock: ${model.modelName || model.modelId} (${model.region})`,
-      });
-    }
-
-    // Register SageMaker endpoints as agents
-    for (const ep of sagemakerEndpoints) {
-      discovered.agents.push({
-        name: ep.EndpointName,
-        type: "ml-workspace",
-        env: "Cloud",
-        risk: ep.EndpointStatus === "InService" ? "high" : "medium",
-        shadow: false,
-        phi: false,
-        pii: true,
-        protocols: ["AWS SageMaker API", "REST"],
-        detect: "AWS auto-discovery",
-        notes: `AWS SageMaker | Status: ${ep.EndpointStatus} | Region: ${ep.region}`,
-        controls: {
-          soc2: "warn",
-          iso27001: "warn",
-          gdpr: "warn",
-          nist: "warn",
-          euai: "fail",
-          hipaa: "warn",
-          hitrust: "warn",
-          fda_samd: "warn",
-        },
-      });
-      log.push({
-        step: "found",
-        status: "found",
-        msg: `SageMaker endpoint: ${ep.EndpointName} (${ep.region}) — ${ep.EndpointStatus}`,
-      });
-    }
-
-    if (discovered.agents.length === 0) {
-      log.push({
-        step: "summary",
-        status: "ok",
-        msg: "No Bedrock/SageMaker resources found — credentials may need additional IAM permissions (bedrock:ListFoundationModels, sagemaker:ListEndpoints)",
-      });
-    } else {
-      log.push({
-        step: "summary",
-        status: "ok",
-        msg: `AWS discovery complete: ${discovered.agents.length} AI agents found across ${AWS_REGIONS.join(", ")}`,
-      });
-    }
-  } catch (e) {
-    log.push({
-      step: "error",
-      status: "error",
-      msg: "AWS discovery error: " + e.message,
-    });
-  }
-
-  return {
-    cloud: "aws",
-    ...discovered,
-    scanners: [...discovered.scanners],
-    log,
-  };
-}
-
-// AWS SigV4 auth headers helper
-async function awsAuthHeaders(
-  accessKeyId,
-  secretAccessKey,
-  region,
-  service,
-  method,
-  path,
-) {
-  try {
-    const crypto = require("crypto");
-    const now = new Date();
-    const dateStr = now
-      .toISOString()
-      .replace(/[:\-]|\.\d{3}/g, "")
-      .substring(0, 8);
-    const timeStr =
-      now
-        .toISOString()
-        .replace(/[:\-]|\.\d{3}/g, "")
-        .substring(0, 15) + "Z";
-
-    const canonicalHeaders = `host:${service}.${region}.amazonaws.com
-x-amz-date:${timeStr}
-`;
-    const signedHeaders = "host;x-amz-date";
-    const payloadHash = crypto.createHash("sha256").update("").digest("hex");
-    const canonicalRequest = [
-      method,
-      "/",
-      " ",
-      canonicalHeaders,
-      signedHeaders,
-      payloadHash,
-    ].join("\n");
-
-    const credentialScope = `${dateStr}/${region}/${service}/aws4_request`;
-    const stringToSign = [
-      "AWS4-HMAC-SHA256",
-      timeStr,
-      credentialScope,
-      crypto.createHash("sha256").update(canonicalRequest).digest("hex"),
-    ].join("\n");
-
-    const hmac = (key, data) =>
-      crypto.createHmac("sha256", key).update(data).digest();
-    const signingKey = hmac(
-      hmac(hmac(hmac("AWS4" + secretAccessKey, dateStr), region), service),
-      "aws4_request",
-    );
-    const signature = crypto
-      .createHmac("sha256", signingKey)
-      .update(stringToSign)
-      .digest("hex");
-
-    return {
-      "X-Amz-Date": timeStr,
-      Authorization: `AWS4-HMAC-SHA256 Credential=${accessKeyId}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`,
-    };
-  } catch (e) {
-    return {};
-  }
-}
-
-// ══ GCP DISCOVERY ENGINE ════════════════════════════════════
 async function discoverGCP(projectId, serviceAccountKey) {
   const log = [];
   const discovered = { services: [], scanners: new Set(), agents: [] };
@@ -3694,12 +3426,31 @@ app.post("/api/integrations/:provider/scan", auth, async (req, res) => {
             allAgents.push(...(r.agents || []));
             console.log(r);
           } else if (provider === "aws") {
-            const r = await discoverAWS(
-              creds.accessKeyId,
-              creds.secretAccessKey,
-              creds.region || "us-east-1",
-            ).catch(() => ({ agents: [] }));
-            allAgents.push(...(r.agents || []));
+            const { discoverAwsConnector } = require("./awsDiscovery.js");
+            const conn = {
+              id: "aws-live",
+              name: "AWS Scan",
+              config: { region: creds.region || "us-east-1", accountId: creds.accountId || "123456789012" },
+              secrets: { accessKeyId: creds.accessKeyId, secretAccessKey: creds.secretAccessKey },
+              environment: "production"
+            };
+            const result = await discoverAwsConnector(conn).catch((err) => { console.error("[AWS Scan Error]:", err); return { observations: [] }; });
+            const awsAgents = (result.observations || [])
+              .filter(obs => obs.metadata?.inventoryClass !== "connector_scan")
+              .map(obs => ({
+                name: obs.name,
+                type: obs.framework || "unknown_aws_agent",
+                env: "Cloud",
+                risk: "medium",
+                shadow: false,
+                phi: false,
+                pii: false,
+                protocols: [],
+                detect: obs.metadata?.discoveryMode || "AWS Discovery API",
+                controls: {},
+                notes: `AWS Resource: ${obs.endpoint} | Status: ${obs.running_status}`
+              }));
+            allAgents.push(...awsAgents);
           } else if (provider === "gcp") {
             const r = await discoverGCP(
               creds.projectId,
@@ -3825,8 +3576,17 @@ app.post("/api/integrations/:provider/test", auth, async (req, res) => {
         throw new Error(
           tokenResp.error_description || tokenResp.error || "Auth failed",
         );
+    } else if (provider === "aws") {
+      const { validateAwsConnector } = require("./awsDiscovery.js");
+      const conn = {
+        config: { region: creds.region || "us-east-1", accountId: creds.accountId || "123456789012" },
+        secrets: { accessKeyId: creds.accessKeyId, secretAccessKey: creds.secretAccessKey }
+      };
+      const validation = await validateAwsConnector(conn);
+      if (!validation.ok) throw new Error(validation.message || "AWS validation failed");
     }
-    // we can add explicit tests for aws/gcp/etc if needed later
+    
+    // we can add explicit tests for gcp/etc if needed later
     res.json({ success: true, message: "Connection successful" });
   } catch (e) {
     res.status(400).json({ error: e.message });
